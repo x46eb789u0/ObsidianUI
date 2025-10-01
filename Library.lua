@@ -1,4 +1,4 @@
---[[ VAPE Anti-Detect Edition - Full Protection (IG) --]]
+--et
 
 -- VAPE ThreadFix: Change thread identity if available
 local ThreadFix = setthreadidentity and true or false
@@ -90,7 +90,8 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
-    ShowCustomCursor = true,
+    ShowBlur = true,
+    BlurSize = 0.05,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -282,7 +283,8 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
-        ShowCustomCursor = true,
+        ShowBlur = true,
+        BlurSize = 0.05,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
@@ -393,31 +395,36 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// VAPE-Style Blur Function (Fixed visibility) \\--
-local function addBlur(parent, opacity)
-    opacity = opacity or 0.1
+--// VAPE-Style FULLSCREEN Blur Function \\--
+local function addFullscreenBlur(parent, opacity)
+    opacity = opacity or 0.05 -- Más ligero que VAPE (0.1)
+    
+    -- Create a fullscreen frame for blur
+    local blurFrame = Instance.new('Frame')
+    blurFrame.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+    blurFrame.Size = UDim2.new(1, 0, 1, 0)
+    blurFrame.Position = UDim2.new(0, 0, 0, 0)
+    blurFrame.BackgroundTransparency = 1
+    blurFrame.BorderSizePixel = 0
+    blurFrame.ZIndex = -1000
+    blurFrame.Parent = parent
+    
+    -- Add blur image to cover entire screen
     local blur = Instance.new('ImageLabel')
-    blur.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 6)
-    blur.Size = UDim2.new(1, 89, 1, 52)
-    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+    blur.Size = UDim2.new(1, 100, 1, 100)
+    blur.Position = UDim2.fromOffset(-50, -50)
+    blur.AnchorPoint = Vector2.new(0, 0)
     blur.BackgroundTransparency = 1
     blur.Image = 'rbxassetid://14898786664'
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
     blur.ImageTransparency = 1 - opacity
-    blur.ZIndex = -1
+    blur.ZIndex = -1000
     blur.BorderSizePixel = 0
-    blur.Parent = parent
+    blur.Parent = blurFrame
     
-    -- Ensure blur is visible
-    task.spawn(function()
-        task.wait(0.1)
-        if blur and blur.Parent then
-            blur.ImageTransparency = 1 - opacity
-        end
-    end)
-    
-    return blur
+    return blurFrame
 end
 
 --// Basic Functions \\--
@@ -1204,42 +1211,7 @@ local ModalElement = New("TextButton", {
     Parent = ScreenGui
 })
 
---// Cursor
-local Cursor
-do
-    Cursor = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "White",
-        Size = UDim2.fromOffset(9, 1),
-        Visible = false,
-        ZIndex = 999,
-        Parent = ScreenGui,
-    })
-    New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "Dark",
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 2, 1, 2),
-        ZIndex = 998,
-        Parent = Cursor,
-    })
-
-    local CursorV = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "White",
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(1, 9),
-        Parent = Cursor,
-    })
-    New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "Dark",
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 2, 1, 2),
-        ZIndex = 998,
-        Parent = CursorV,
-    })
-end
+--// Custom Cursor REMOVED for anti-detect (not needed)
 
 --// Notification
 local NotificationArea
@@ -1871,8 +1843,8 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
             and not (CurrentMenu and Library:MouseIsOverFrame(CurrentMenu.Menu, Mouse))
         do
             TooltipLabel.Position = UDim2.fromOffset(
-                Mouse.X + (Library.ShowCustomCursor and 8 or 14),
-                Mouse.Y + (Library.ShowCustomCursor and 8 or 12)
+                Mouse.X + 14,
+                Mouse.Y + 12
             )
 
             RunService.RenderStepped:Wait()
@@ -5096,6 +5068,53 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
+--// VAPE-Style Blur Control Functions \\--
+function Library:SetBlur(enabled: boolean)
+    Library.ShowBlur = enabled
+    
+    -- Apply immediately if toggled
+    if Library.Toggled then
+        if enabled then
+            -- Add blur if not exists
+            local existingBlur = nil
+            for _, child in ipairs(ScreenGui:GetChildren()) do
+                if child:IsA("Frame") and child.ZIndex == -1000 then
+                    existingBlur = child
+                    break
+                end
+            end
+            
+            if not existingBlur then
+                addFullscreenBlur(ScreenGui, Library.BlurSize or 0.05)
+            end
+        else
+            -- Remove blur
+            for _, child in ipairs(ScreenGui:GetChildren()) do
+                if child:IsA("Frame") and child.ZIndex == -1000 then
+                    child:Destroy()
+                end
+            end
+        end
+    end
+end
+
+function Library:SetBlurSize(size: number)
+    Library.BlurSize = math.clamp(size, 0, 1)
+    
+    -- Update existing blur if present
+    if Library.Toggled and Library.ShowBlur then
+        for _, child in ipairs(ScreenGui:GetChildren()) do
+            if child:IsA("Frame") and child.ZIndex == -1000 then
+                for _, subchild in ipairs(child:GetChildren()) do
+                    if subchild:IsA("ImageLabel") and subchild.Image == 'rbxassetid://14898786664' then
+                        subchild.ImageTransparency = 1 - Library.BlurSize
+                    end
+                end
+            end
+        end
+    end
+end
+
 function Library:Notify(...)
     local Data = {}
     local Info = select(1, ...)
@@ -5365,7 +5384,8 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
-    Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
 
@@ -5379,7 +5399,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("Keybinds")
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(game:GetService("HttpService"):GenerateGUID(false):sub(1, 8))
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -6594,24 +6614,24 @@ function Library:CreateWindow(WindowInfo)
 
         MainFrame.Visible = Library.Toggled
         
-        -- VAPE-style blur: Add/remove when toggling
+        -- VAPE-style FULLSCREEN blur: Add/remove when toggling
         if Library.Toggled then
-            -- Find any existing blur by checking for ImageLabel with blur image
+            -- Find any existing blur frame
             local existingBlur = nil
-            for _, child in ipairs(MainFrame:GetChildren()) do
-                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+            for _, child in ipairs(ScreenGui:GetChildren()) do
+                if child:IsA("Frame") and child.ZIndex == -1000 then
                     existingBlur = child
                     break
                 end
             end
             
-            if not existingBlur then
-                addBlur(MainFrame, 0.1)
+            if not existingBlur and Library.ShowBlur then
+                addFullscreenBlur(ScreenGui, Library.BlurSize or 0.05)
             end
         else
             -- Remove blur when hiding
-            for _, child in ipairs(MainFrame:GetChildren()) do
-                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+            for _, child in ipairs(ScreenGui:GetChildren()) do
+                if child:IsA("Frame") and child.ZIndex == -1000 then
                     child:Destroy()
                 end
             end
@@ -6621,25 +6641,7 @@ function Library:CreateWindow(WindowInfo)
             ModalElement.Modal = Library.Toggled
         end
 
-        if Library.Toggled and not Library.IsMobile then
-            local OldMouseIconEnabled = UserInputService.MouseIconEnabled
-            local bindName = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
-            pcall(function()
-                RunService:UnbindFromRenderStep(bindName)
-            end)
-            RunService:BindToRenderStep(bindName, Enum.RenderPriority.Last.Value, function()
-                UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
-
-                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
-                Cursor.Visible = Library.ShowCustomCursor
-
-                if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
-                    UserInputService.MouseIconEnabled = OldMouseIconEnabled
-                    Cursor.Visible = false
-                    RunService:UnbindFromRenderStep(bindName)
-                end
-            end)
-        elseif not Library.Toggled then
+        if not Library.Toggled then
             TooltipLabel.Visible = false
             for _, Option in pairs(Library.Options) do
                 if Option.Type == "ColorPicker" then

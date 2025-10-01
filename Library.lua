@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any)
+local cloneref = (cloneref or clonereference or function(instance: any) -- lol
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -119,7 +119,7 @@ local LibraryMetatable = {
             _ShowBlur = value
             
             -- Si se desactiva ShowBlur, limpiar el blur
-            if not value and oldValue ~= value then
+            if not value and oldValue then
                 if BlurAnimationThread then
                     task.cancel(BlurAnimationThread)
                     BlurAnimationThread = nil
@@ -130,7 +130,7 @@ local LibraryMetatable = {
                 rawset(t, "BlurEnabled", false)
             end
             
-            -- Si se activa ShowBlur y la UI está visible, activar el blur
+            -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
             if value and not oldValue and rawget(t, "Toggled") then
                 animateBlur(true)
             end

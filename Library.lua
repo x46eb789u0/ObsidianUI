@@ -1,22 +1,9 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- lmao
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
     end)
 end
-
-pcall(function()
-    if setfpscap then setfpscap(9999) end
-end)
-
-pcall(function()
-    if hookfunction then
-        local oldRequire = require
-        require = hookfunction(require, function(...)
-            return oldRequire(...)
-        end)
-    end
-end)
 
 local cloneref = cloneref or function(obj)
     return obj
@@ -37,14 +24,14 @@ local function randomString(length)
     return result
 end
 
-local CoreGui: CoreGui = secureCall(function() return cloneref(game:GetService("CoreGui")) end) or game:GetService("CoreGui")
-local Players: Players = secureCall(function() return cloneref(game:GetService("Players")) end) or game:GetService("Players")
-local RunService: RunService = secureCall(function() return cloneref(game:GetService("RunService")) end) or game:GetService("RunService")
-local SoundService: SoundService = secureCall(function() return cloneref(game:GetService("SoundService")) end) or game:GetService("SoundService")
-local UserInputService: UserInputService = secureCall(function() return cloneref(game:GetService("UserInputService")) end) or game:GetService("UserInputService")
-local TextService: TextService = secureCall(function() return cloneref(game:GetService("TextService")) end) or game:GetService("TextService")
-local Teams: Teams = secureCall(function() return cloneref(game:GetService("Teams")) end) or game:GetService("Teams")
-local TweenService: TweenService = secureCall(function() return cloneref(game:GetService("TweenService")) end) or game:GetService("TweenService")
+local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
+local Players: Players = cloneref(game:GetService("Players"))
+local RunService: RunService = cloneref(game:GetService("RunService"))
+local SoundService: SoundService = cloneref(game:GetService("SoundService"))
+local UserInputService: UserInputService = cloneref(game:GetService("UserInputService"))
+local TextService: TextService = cloneref(game:GetService("TextService"))
+local Teams: Teams = cloneref(game:GetService("Teams"))
+local TweenService: TweenService = cloneref(game:GetService("TweenService"))
 
 local getgenv = getgenv or function()
     return shared
@@ -77,7 +64,6 @@ local gethui = gethui or function()
     end) or CoreGui
 end
 
---[[
 if getrenv and setreadonly then
     pcall(function()
         local env = getrenv()
@@ -86,7 +72,6 @@ if getrenv and setreadonly then
         setreadonly(env, true)
     end)
 end
---]]
 
 local gc_protect = function(tbl)
     pcall(function()
@@ -111,60 +96,7 @@ gc_protect(Buttons)
 gc_protect(Toggles)
 gc_protect(Options)
 
-pcall(function()
-    local mt = getrawmetatable(game)
-    if setreadonly then setreadonly(mt, false) end
-    if make_writeable then make_writeable(mt) end
-    
-    local oldNamecall = mt.__namecall
-    local oldIndex = mt.__index
-    local oldNewIndex = mt.__newindex
-    
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        
-        if method == "Kick" and self == LocalPlayer then
-            return
-        end
-        
-        if method == "FireServer" or method == "InvokeServer" then
-            local callingScript = getcallingscript and getcallingscript()
-            if callingScript and callingScript ~= script then
-                return oldNamecall(self, ...)
-            end
-        end
-        
-        return oldNamecall(self, ...)
-    end)
-    
-    mt.__index = newcclosure(function(self, key)
-        local success, result = pcall(function()
-            return oldIndex(self, key)
-        end)
-        
-        if success then
-            return result
-        else
-            return nil
-        end
-    end)
-    
-    mt.__newindex = newcclosure(function(self, key, value)
-        if key == "Parent" and typeof(self) == "Instance" and self:IsA("ScreenGui") then
-            if self == Library.ScreenGui then
-                return
-            end
-        end
-        
-        return oldNewIndex(self, key, value)
-    end)
-    
-    if setreadonly then setreadonly(mt, true) end
-    if make_readonly then make_readonly(mt) end
-end)
-
-local Lighting: Lighting = secureCall(function() return cloneref(game:GetService("Lighting")) end) or game:GetService("Lighting")
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local BlurAnimationThread = nil
 local _ShowBlur = true
@@ -526,14 +458,8 @@ local Sizes = {
 
 --// Basic Functions \\--
 local function addBlur(parent)
-    local blur = secureCall(function()
-        return Instance.new('ImageLabel')
-    end) or Instance.new('ImageLabel')
-    
-    secureCall(function()
-        blur.Name = randomString(math.random(8, 16))
-    end)
-    
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'Blur'
     blur.Size = UDim2.new(1, 89, 1, 52)
     blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
@@ -548,14 +474,8 @@ end
 
 local function createBlurEffect()
     if not Library.BlurEffect then
-        Library.BlurEffect = secureCall(function()
-            return Instance.new("BlurEffect")
-        end) or Instance.new("BlurEffect")
-        
-        secureCall(function()
-            Library.BlurEffect.Name = randomString(math.random(12, 20))
-        end)
-        
+        Library.BlurEffect = Instance.new("BlurEffect")
+        Library.BlurEffect.Name = "ObsidianBlur"
         Library.BlurEffect.Size = 0
         Library.BlurEffect.Parent = Lighting
     end
@@ -693,14 +613,7 @@ local function ApplyTextScale(TextSize)
 end
 
 local function WaitForEvent(Event, Timeout, Condition)
-    local Bindable = secureCall(function()
-        return Instance.new("BindableEvent")
-    end) or Instance.new("BindableEvent")
-    
-    secureCall(function()
-        Bindable.Name = randomString(math.random(8, 16))
-    end)
-    
+    local Bindable = Instance.new("BindableEvent")
     local Connection = Event:Once(function(...)
         if not Condition or typeof(Condition) == "function" and Condition(...) then
             Bindable:Fire(true)
@@ -1385,21 +1298,7 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
 end
 
 local function New(ClassName: string, Properties: { [string]: any }): any
-    local Instance = secureCall(function()
-        return Instance.new(ClassName)
-    end)
-    
-    if not Instance then
-        Instance = Instance.new(ClassName)
-    end
-    
-    pcall(function()
-        if ClassName == "ScreenGui" or ClassName == "BillboardGui" or ClassName == "SurfaceGui" then
-            Instance.Name = randomString(math.random(10, 20))
-        elseif ClassName:match("Frame") or ClassName:match("Button") or ClassName:match("Label") or ClassName == "ScrollingFrame" or ClassName == "TextBox" then
-            Instance.Name = randomString(math.random(8, 16))
-        end
-    end)
+    local Instance = Instance.new(ClassName)
 
     if Templates[ClassName] then
         FillInstance(Templates[ClassName], Instance)
@@ -1448,10 +1347,10 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
+    Name = "Obsidian",
     DisplayOrder = 999,
     ResetOnSpawn = false,
 })
-pcall(protectgui, ScreenGui)
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
 ScreenGui.DescendantRemoving:Connect(function(Instance)
@@ -1548,10 +1447,7 @@ function Library:GetKeyString(KeyCode: Enum.KeyCode)
 end
 
 function Library:GetTextBounds(Text: string, Font: Font, Size: number, Width: number?): (number, number)
-    local Params = secureCall(function()
-        return Instance.new("GetTextBoundsParams")
-    end) or Instance.new("GetTextBoundsParams")
-    
+    local Params = Instance.new("GetTextBoundsParams")
     Params.Text = Text
     Params.RichText = true
     Params.Font = Font
@@ -7001,44 +6897,5 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-pcall(function()
-    for _, descendant in ipairs(ScreenGui:GetDescendants()) do
-        if descendant:IsA("GuiObject") and descendant.Name ~= randomString(8) then
-            pcall(function()
-                descendant.Name = randomString(math.random(8, 16))
-            end)
-        end
-    end
-end)
-
-pcall(function()
-    if gethiddenproperty and sethiddenproperty then
-        for _, child in ipairs(ScreenGui:GetDescendants()) do
-            if child:IsA("GuiObject") then
-                pcall(function()
-                    sethiddenproperty(child, "ScriptingActive", false)
-                end)
-            end
-        end
-    end
-end)
-
-pcall(function()
-    task.spawn(function()
-        while not Library.Unloaded do
-            if Library.BlurEffect and Library.BlurEffect.Parent ~= Lighting then
-                Library.BlurEffect.Parent = Lighting
-            end
-            
-            if ScreenGui and ScreenGui.Parent == nil then
-                ParentUI(ScreenGui)
-            end
-            
-            task.wait(1)
-        end
-    end)
-end)
-
 getgenv().Library = Library
 return Library
-

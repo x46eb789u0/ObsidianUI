@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any)
+local cloneref = (cloneref or clonereference or function(instance: any) -- erm
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -147,7 +147,6 @@ local LibraryMetatable = {
         end
     end
 }
-setmetatable(Library, LibraryMetatable)
 
 local ObsidianImageManager = {
     Assets = {
@@ -512,6 +511,9 @@ local function animateBlur(enabled)
         BlurAnimationThread = nil
     end)
 end
+
+-- Aplicar metatable después de que animateBlur esté definida
+setmetatable(Library, LibraryMetatable)
 
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then

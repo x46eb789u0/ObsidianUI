@@ -1,3 +1,4 @@
+--NoTeams
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
@@ -7,7 +8,6 @@ local RunService: RunService = cloneref(game:GetService("RunService"))
 local SoundService: SoundService = cloneref(game:GetService("SoundService"))
 local UserInputService: UserInputService = cloneref(game:GetService("UserInputService"))
 local TextService: TextService = cloneref(game:GetService("TextService"))
-local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
 
 local getgenv = getgenv or function()
@@ -475,15 +475,6 @@ local function GetPlayers(ExcludeLocalPlayer: boolean?)
     end)
 
     return PlayerList
-end
-local function GetTeams()
-    local TeamList = Teams:GetTeams()
-
-    table.sort(TeamList, function(Team1, Team2)
-        return Team1.Name:lower() < Team2.Name:lower()
-    end)
-
-    return TeamList
 end
 
 function Library:UpdateKeybindFrame()
@@ -3915,9 +3906,6 @@ do
         if Info.SpecialType == "Player" then
             Info.Values = GetPlayers(Info.ExcludeLocalPlayer)
             Info.AllowNull = true
-        elseif Info.SpecialType == "Team" then
-            Info.Values = GetTeams()
-            Info.AllowNull = true
         end
         local Dropdown = {
             Text = typeof(Info.Text) == "string" and Info.Text or nil,
@@ -6588,21 +6576,9 @@ local function OnPlayerChange()
         end
     end
 end
-local function OnTeamChange()
-    local TeamList = GetTeams()
-
-    for _, Dropdown in pairs(Options) do
-        if Dropdown.Type == "Dropdown" and Dropdown.SpecialType == "Team" then
-            Dropdown:SetValues(TeamList)
-        end
-    end
-end
 
 Library:GiveSignal(Players.PlayerAdded:Connect(OnPlayerChange))
 Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
-
-Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
-Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 getgenv().Library = Library
 return Library

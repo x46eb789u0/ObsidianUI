@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false --- x
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -31,6 +31,7 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local getgenv = getgenv or function()
     return shared
@@ -90,6 +91,11 @@ local Buttons = {}
 local Toggles = {}
 local Options = {}
 
+local BlurAnimationThread = nil
+local _ShowBlur = true
+local _BlurSize = 13
+local _ShowMobileLockButton = true
+
 local Library = {
     LocalPlayer = LocalPlayer,
     DevicePlatform = nil,
@@ -125,6 +131,7 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
+    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -154,6 +161,11 @@ local Library = {
 
     Registry = {},
     DPIRegistry = {},
+
+    BlurEffect = nil,
+    BlurEnabled = false,
+    
+    MobileLockButton = nil,
 }
 
 local ObsidianImageManager = {
@@ -168,6 +180,13 @@ local ObsidianImageManager = {
         SaturationMap = {
             RobloxId = 4155801252,
             Path = "ObsidianUI/assets/SaturationMap.png",
+
+            Id = nil
+        },
+        
+        Blur = {
+            RobloxId = 14898786664,
+            Path = "ObsidianUI/assets/blur.png",
 
             Id = nil
         }
@@ -316,15 +335,18 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
+        ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
-        UnlockMouseWhileOpen = true
+        UnlockMouseWhileOpen = true,
+        ShowBlur = true,
+        BlurSize = 13,
+        ShowMobileLockButton = true
     },
     Toggle = {
         Text = "Toggle",
         Default = false,
-
         Callback = function() end,
         Changed = function() end,
 
@@ -427,6 +449,136 @@ local Sizes = {
 }
 
 --// Basic Functions \\--
+local function addBlur(parent)
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'Blur'
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.BackgroundTransparency = 1
+    blur.Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664'
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ZIndex = 0
+    blur.Parent = parent
+
+    return blur
+end
+
+local function createBlurEffect()
+    if not Library.BlurEffect then
+        Library.BlurEffect = Instance.new("BlurEffect")
+        Library.BlurEffect.Name = "ObsidianBlur"
+        Library.BlurEffect.Size = 0
+        Library.BlurEffect.Parent = Lighting
+    end
+end
+
+local function animateBlur(enabled)
+    if not _ShowBlur then
+        return
+    end
+
+    if BlurAnimationThread then
+        task.cancel(BlurAnimationThread)
+        BlurAnimationThread = nil
+    end
+
+    Library.BlurEnabled = enabled
+
+    if not Library.BlurEffect then
+        createBlurEffect()
+    end
+
+    local baseIncrement = math.max(2, _BlurSize / 12)
+    
+    BlurAnimationThread = task.spawn(function()
+        if enabled then
+            local targetSize = _BlurSize
+
+            while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
+                local currentSize = Library.BlurEffect.Size
+                local remaining = targetSize - currentSize
+                local increment = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize + increment
+                
+                if Library.BlurEffect.Size >= targetSize then
+                    Library.BlurEffect.Size = targetSize
+                    break
+                end
+                task.wait(0.03)
+            end
+        else
+            while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
+                local currentSize = Library.BlurEffect.Size
+                local remaining = currentSize
+                local decrement = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize - decrement
+                
+                if Library.BlurEffect.Size <= 0 then
+                    Library.BlurEffect.Size = 0
+                    break
+                end
+                task.wait(0.03)
+            end
+        end
+        
+        BlurAnimationThread = nil
+    end)
+end
+
+do
+    local LibraryMetatable = {
+        __index = function(t, key)
+            if key == "ShowBlur" then
+                return _ShowBlur
+            elseif key == "BlurSize" then
+                return _BlurSize
+            elseif key == "ShowMobileLockButton" then
+                return _ShowMobileLockButton
+            end
+            return rawget(t, key)
+        end,
+        __newindex = function(t, key, value)
+            if key == "ShowBlur" then
+                local oldValue = _ShowBlur
+                _ShowBlur = value
+                
+                if not value and oldValue then
+                    if BlurAnimationThread then
+                        task.cancel(BlurAnimationThread)
+                        BlurAnimationThread = nil
+                    end
+                    if rawget(t, "BlurEffect") then
+                        rawget(t, "BlurEffect").Size = 0
+                    end
+                    rawset(t, "BlurEnabled", false)
+                end
+                
+                if value and rawget(t, "Toggled") then
+                    animateBlur(true)
+                end
+            elseif key == "BlurSize" then
+                _BlurSize = value
+                
+                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
+                    rawget(t, "BlurEffect").Size = value
+                end
+            elseif key == "ShowMobileLockButton" then
+                _ShowMobileLockButton = value
+                
+                if rawget(t, "MobileLockButton") then
+                    rawget(t, "MobileLockButton").Button.Visible = value
+                end
+            else
+                rawset(t, key, value)
+            end
+        end
+    }
+    setmetatable(Library, LibraryMetatable)
+end
+
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
         return UDim.new(Dimension.Scale, Dimension.Offset * Library.DPIScale)
@@ -1209,7 +1361,42 @@ local ModalElement = New("TextButton", {
     Parent = ScreenGui
 })
 
---// Custom Cursor REMOVED for anti-detect (not needed)
+--// Cursor
+local Cursor
+do
+    Cursor = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Size = UDim2.fromOffset(9, 1),
+        Visible = false,
+        ZIndex = 999,
+        Parent = ScreenGui,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = Cursor,
+    })
+
+    local CursorV = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(1, 9),
+        Parent = Cursor,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = CursorV,
+    })
+end
 
 --// Notification
 local NotificationArea
@@ -1840,13 +2027,14 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
             and not (CurrentMenu and Library:MouseIsOverFrame(CurrentMenu.Menu, Mouse))
         do
             TooltipLabel.Position = UDim2.fromOffset(
-                Mouse.X + 14,
-                Mouse.Y + 12
+                Mouse.X + (Library.ShowCustomCursor and 8 or 14),
+                Mouse.Y + (Library.ShowCustomCursor and 8 or 12)
             )
 
             RunService.RenderStepped:Wait()
         end
 
+{{ ... }}
         TooltipLabel.Visible = false
         CurrentHoverInstance = nil
     end
@@ -1892,6 +2080,11 @@ function Library:Unload()
 
     for _, Callback in pairs(Library.UnloadSignals) do
         Library:SafeCallback(Callback)
+    end
+
+    if Library.BlurEffect then
+        Library.BlurEffect:Destroy()
+        Library.BlurEffect = nil
     end
 
     Library.Unloaded = true
@@ -5046,7 +5239,6 @@ function Library:SetFont(FontFace)
     if typeof(FontFace) == "EnumItem" then
         FontFace = Font.fromEnum(FontFace)
     end
-
     Library.Scheme.Font = FontFace
     Library:UpdateColorsUsingRegistry()
 end
@@ -5057,14 +5249,17 @@ function Library:SetNotifySide(Side: string)
     if Side:lower() == "left" then
         NotificationArea.AnchorPoint = Vector2.new(0, 0)
         NotificationArea.Position = UDim2.fromOffset(6, 6)
-        NotificationList.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        NotificationList.HorizontalAlignment = Enum.Alignment.Left
     else
         NotificationArea.AnchorPoint = Vector2.new(1, 0)
         NotificationArea.Position = UDim2.new(1, -6, 0, 6)
-        NotificationList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+        NotificationList.Alignment = Enum.Alignment.Right
     end
 end
 
+function Library:SetShowMobileLockButton(Show: boolean)
+    Library.ShowMobileLockButton = Show
+end
 
 function Library:Notify(...)
     local Data = {}
@@ -5335,8 +5530,12 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
+    Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
+    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
@@ -5397,6 +5596,8 @@ function Library:CreateWindow(WindowInfo)
             end
             Library:MakeOutline(MainFrame, WindowInfo.CornerRadius, 0)
         end
+        addBlur(MainFrame)
+        createBlurEffect()
 
         if WindowInfo.BackgroundImage then
             New("ImageLabel", {
@@ -6571,7 +6772,26 @@ function Library:CreateWindow(WindowInfo)
             ModalElement.Modal = Library.Toggled
         end
 
-        if not Library.Toggled then
+        animateBlur(Library.Toggled)
+
+        if Library.Toggled and not Library.IsMobile then
+            local OldMouseIconEnabled = UserInputService.MouseIconEnabled
+            pcall(function()
+                RunService:UnbindFromRenderStep("ShowCursor")
+            end)
+            RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
+                UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
+
+                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
+                Cursor.Visible = Library.ShowCustomCursor
+
+                if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
+                    UserInputService.MouseIconEnabled = OldMouseIconEnabled
+                    Cursor.Visible = false
+                    RunService:UnbindFromRenderStep("ShowCursor")
+                end
+            end)
+        elseif not Library.Toggled then
             TooltipLabel.Visible = false
             for _, Option in pairs(Library.Options) do
                 if Option.Type == "ColorPicker" then
@@ -6593,19 +6813,21 @@ function Library:CreateWindow(WindowInfo)
             Library:Toggle()
         end)
 
-        local LockButton = Library:AddDraggableButton("Lock", function(self)
+        Library.MobileLockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
         end)
+
+        Library.MobileLockButton.Button.Visible = Library.ShowMobileLockButton
 
         if WindowInfo.MobileButtonsSide == "Right" then
             ToggleButton.Button.Position = UDim2.new(1, -6, 0, 6)
             ToggleButton.Button.AnchorPoint = Vector2.new(1, 0)
 
-            LockButton.Button.Position = UDim2.new(1, -6, 0, 46)
-            LockButton.Button.AnchorPoint = Vector2.new(1, 0)
+            Library.MobileLockButton.Button.Position = UDim2.new(1, -6, 0, 46)
+            Library.MobileLockButton.Button.AnchorPoint = Vector2.new(1, 0)
         else
-            LockButton.Button.Position = UDim2.fromOffset(6, 46)
+            Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
 

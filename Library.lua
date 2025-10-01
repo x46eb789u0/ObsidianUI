@@ -1,6 +1,30 @@
-local cloneref = (cloneref or clonereference or function(instance: any)
-    return instance
-end)
+--// Yeah still dont skid, you will get frezeed\\--
+local ThreadFix = setthreadidentity and true or false
+if ThreadFix then
+    local success = pcall(function() 
+        setthreadidentity(8) 
+    end)
+end
+
+local cloneref = cloneref or function(obj)
+    return obj
+end
+
+local secureCall = function(func, ...)
+    local success, result = pcall(func, ...)
+    return success and result or nil
+end
+
+local function randomString(length)
+    local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    local result = ''
+    for i = 1, length do
+        local rand = math.random(1, #chars)
+        result = result .. chars:sub(rand, rand)
+    end
+    return result
+end
+
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
@@ -14,9 +38,50 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
-local protectgui = protectgui or (syn and syn.protect_gui) or function() end
+
+local protectgui = protectgui or (syn and syn.protect_gui) or (function()
+    local protected = {}
+    return function(gui)
+        if gui then
+            protected[gui] = true
+
+            secureCall(function()
+                gui.Name = randomString(math.random(8, 16))
+            end)
+
+            pcall(function()
+                if cloneref then
+                    gui = cloneref(gui)
+                end
+            end)
+        end
+    end
+end)()
+
 local gethui = gethui or function()
-    return CoreGui
+    return secureCall(function() 
+        local cg = game:GetService("CoreGui")
+        return cloneref and cloneref(cg) or cg
+    end) or CoreGui
+end
+
+if getrenv and setreadonly then
+    pcall(function()
+        local env = getrenv()
+        setreadonly(env, false)
+        env.script = nil
+        setreadonly(env, true)
+    end)
+end
+
+local gc_protect = function(tbl)
+    pcall(function()
+        setmetatable(tbl, {
+            __mode = "k",
+            __metatable = randomString(16),
+            __tostring = function() return randomString(12) end
+        })
+    end)
 end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -26,6 +91,11 @@ local Labels = {}
 local Buttons = {}
 local Toggles = {}
 local Options = {}
+
+gc_protect(Labels)
+gc_protect(Buttons)
+gc_protect(Toggles)
+gc_protect(Options)
 
 local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
@@ -57,8 +127,8 @@ local Library = {
     Notifications = {},
 
     ToggleKeybind = Enum.KeyCode.RightControl,
-    TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    TweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
 
     Toggled = false,
     Unloaded = false,
@@ -69,7 +139,6 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
-    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -273,14 +342,10 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
-        ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
-        UnlockMouseWhileOpen = true,
-        ShowBlur = true,
-        BlurSize = 13,
-        ShowMobileLockButton = true
+        UnlockMouseWhileOpen = true
     },
     Toggle = {
         Text = "Toggle",
@@ -599,6 +664,42 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
+
+local VapeTween = {
+    tweens = {},
+    tweenstwo = {}
+}
+
+function VapeTween:Tween(obj, tweeninfo, goal, tab)
+    tab = tab or self.tweens
+    if tab[obj] then
+        tab[obj]:Cancel()
+        tab[obj] = nil
+    end
+
+    if obj.Parent and obj.Visible then
+        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
+        tab[obj].Completed:Once(function()
+            if tab then
+                tab[obj] = nil
+                tab = nil
+            end
+        end)
+        tab[obj]:Play()
+    else
+        for i, v in goal do
+            obj[i] = v
+        end
+    end
+end
+
+function VapeTween:Cancel(obj)
+    if self.tweens[obj] then
+        self.tweens[obj]:Cancel()
+        self.tweens[obj] = nil
+    end
+end
+
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -6794,3 +6895,4 @@ Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 getgenv().Library = Library
 return Library
+

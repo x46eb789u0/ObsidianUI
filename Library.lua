@@ -1,4 +1,4 @@
--- apapa
+-- fuck you
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
@@ -5589,7 +5589,8 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(randomString(12))
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("KeybindFrame")
+        Library.KeybindFrame.Name = "KeybindFrame"
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -6807,7 +6808,13 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
-        
+
+        -- Blur animation
+        animateBlur(Library.Toggled)
+
+        -- Custom cursor
+        Library:SetupCustomCursor()
+
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
         end

@@ -1,3 +1,4 @@
+-- te
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
@@ -97,7 +98,6 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
-    BlurAnimating = false,
     ShowBlur = true,
     BlurSize = 6,
 }
@@ -398,6 +398,8 @@ local function addBlur(parent)
     return blur
 end
 
+local BlurAnimationThread = nil
+
 local function createBlurEffect()
     if not Library.BlurEffect then
         Library.BlurEffect = Instance.new("BlurEffect")
@@ -408,45 +410,62 @@ local function createBlurEffect()
 end
 
 local function animateBlur(enabled)
-    if Library.BlurAnimating or not Library.ShowBlur then
+    if not Library.ShowBlur then
         return
     end
 
-    Library.BlurAnimating = true
+    -- Cancelar animación anterior si existe
+    if BlurAnimationThread then
+        task.cancel(BlurAnimationThread)
+        BlurAnimationThread = nil
+    end
+
     Library.BlurEnabled = enabled
 
     if not Library.BlurEffect then
         createBlurEffect()
     end
 
-    if enabled then
-        -- Activar blur con animación
-        local targetSize = Library.BlurSize
-        local increment = 2
+    -- Calcular incremento dinámico basado en el BlurSize para animaciones más rápidas
+    local baseIncrement = math.max(2, Library.BlurSize / 12)
+    
+    BlurAnimationThread = task.spawn(function()
+        if enabled then
+            -- Activar blur con animación
+            local targetSize = Library.BlurSize
 
-        task.spawn(function()
             while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
-                Library.BlurEffect.Size = Library.BlurEffect.Size + increment
-                if Library.BlurEffect.Size > targetSize then
+                local currentSize = Library.BlurEffect.Size
+                local remaining = targetSize - currentSize
+                local increment = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize + increment
+                
+                if Library.BlurEffect.Size >= targetSize then
                     Library.BlurEffect.Size = targetSize
+                    break
                 end
-                task.wait(0.05)
+                task.wait(0.03)
             end
-            Library.BlurAnimating = false
-        end)
-    else
-        -- Desactivar blur con animación
-        task.spawn(function()
+        else
+            -- Desactivar blur con animación
             while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
-                Library.BlurEffect.Size = Library.BlurEffect.Size - 2
-                if Library.BlurEffect.Size < 0 then
+                local currentSize = Library.BlurEffect.Size
+                local remaining = currentSize
+                local decrement = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize - decrement
+                
+                if Library.BlurEffect.Size <= 0 then
                     Library.BlurEffect.Size = 0
+                    break
                 end
-                task.wait(0.05)
+                task.wait(0.03)
             end
-            Library.BlurAnimating = false
-        end)
-    end
+        end
+        
+        BlurAnimationThread = nil
+    end)
 end
 
 local function ApplyDPIScale(Dimension, ExtraOffset)
@@ -5085,10 +5104,15 @@ function Library:SetShowBlur(Show: boolean)
     Library.ShowBlur = Show
     
     -- Si se desactiva ShowBlur mientras el blur está activo, desactivarlo inmediatamente
-    if not Show and Library.BlurEffect and Library.BlurEffect.Size > 0 then
-        Library.BlurEffect.Size = 0
+    if not Show then
+        if BlurAnimationThread then
+            task.cancel(BlurAnimationThread)
+            BlurAnimationThread = nil
+        end
+        if Library.BlurEffect then
+            Library.BlurEffect.Size = 0
+        end
         Library.BlurEnabled = false
-        Library.BlurAnimating = false
     end
     
     -- Si se activa ShowBlur y la UI está visible, activar el blur

@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any) -- lidhjsjksj
+local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -417,7 +417,6 @@ local function animateBlur(enabled)
         return
     end
 
-    -- Cancelar animación anterior si existe
     if BlurAnimationThread then
         task.cancel(BlurAnimationThread)
         BlurAnimationThread = nil
@@ -429,12 +428,10 @@ local function animateBlur(enabled)
         createBlurEffect()
     end
 
-    -- Calcular incremento dinámico basado en el BlurSize para animaciones más rápidas
     local baseIncrement = math.max(2, _BlurSize / 12)
     
     BlurAnimationThread = task.spawn(function()
         if enabled then
-            -- Activar blur con animación
             local targetSize = _BlurSize
 
             while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
@@ -451,7 +448,6 @@ local function animateBlur(enabled)
                 task.wait(0.03)
             end
         else
-            -- Desactivar blur con animación
             while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
                 local currentSize = Library.BlurEffect.Size
                 local remaining = currentSize
@@ -471,7 +467,6 @@ local function animateBlur(enabled)
     end)
 end
 
--- Metatable para interceptar cambios en ShowBlur, BlurSize y ShowMobileLockButton
 do
     local LibraryMetatable = {
         __index = function(t, key)
@@ -489,7 +484,6 @@ do
                 local oldValue = _ShowBlur
                 _ShowBlur = value
                 
-                -- Si se desactiva ShowBlur, limpiar el blur inmediatamente
                 if not value and oldValue then
                     if BlurAnimationThread then
                         task.cancel(BlurAnimationThread)
@@ -501,21 +495,18 @@ do
                     rawset(t, "BlurEnabled", false)
                 end
                 
-                -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
                 if value and rawget(t, "Toggled") then
                     animateBlur(true)
                 end
             elseif key == "BlurSize" then
                 _BlurSize = value
                 
-                -- Si el blur está activo, actualizar su tamaño inmediatamente
                 if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
                     rawget(t, "BlurEffect").Size = value
                 end
             elseif key == "ShowMobileLockButton" then
                 _ShowMobileLockButton = value
                 
-                -- Actualizar visibilidad del botón Lock en móvil si existe
                 if rawget(t, "MobileLockButton") then
                     rawget(t, "MobileLockButton").Button.Visible = value
                 end
@@ -1982,7 +1973,6 @@ function Library:Unload()
         Library:SafeCallback(Callback)
     end
 
-    -- Limpiar el blur effect
     if Library.BlurEffect then
         Library.BlurEffect:Destroy()
         Library.BlurEffect = nil
@@ -2228,8 +2218,18 @@ do
                     KeybindsToggle:SetNormal(true)
                 end
 
-                KeybindsToggle:SetText(("[%s] %s (%s)"):format(KeyPicker.Value, KeyPicker.Text, KeyPicker.Mode))
-                KeybindsToggle:SetVisibility(true)
+                local showToggle = KeyPicker.Value ~= "None" and KeyPicker.Value ~= ""
+                if not showToggle then
+                    KeybindsToggle:SetVisibility(false)
+                else
+                    KeybindsToggle:SetVisibility(true)
+                    local modeStr = string.format(" (%s)", KeyPicker.Mode:sub(1, 1):upper())
+                    local text = KeybindsToggle.Normal and
+                        string.format("[%s] - %s%s", KeyPicker.Value, KeyPicker.Text, modeStr) or
+                        string.format("[%s] %s%s", KeyPicker.Value, KeyPicker.Text, modeStr)
+                    KeybindsToggle:SetText(text)
+                end
+
                 KeybindsToggle:Display(State)
             end
 
@@ -5160,16 +5160,16 @@ function Library:SetNotifySide(Side: string)
 end
 
 function Library:SetShowBlur(Show: boolean)
-    Library.ShowBlur = Show  -- El metatable maneja automáticamente todo
+    Library.ShowBlur = Show
 end
 
 function Library:SetBlurSize(Size: number)
     assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
-    Library.BlurSize = Size  -- El metatable maneja automáticamente todo
+    Library.BlurSize = Size
 end
 
 function Library:SetShowMobileLockButton(Show: boolean)
-    Library.ShowMobileLockButton = Show  -- El metatable maneja automáticamente todo
+    Library.ShowMobileLockButton = Show
 end
 
 function Library:Notify(...)
@@ -6723,7 +6723,6 @@ function Library:CreateWindow(WindowInfo)
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
         end)
 
-        -- Aplicar visibilidad inicial del botón Lock
         Library.MobileLockButton.Button.Visible = Library.ShowMobileLockButton
 
         if WindowInfo.MobileButtonsSide == "Right" then

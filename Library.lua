@@ -1,9 +1,11 @@
---et
+--[[ VAPE Anti-Detect Edition - Maximum Protection --]]
 
--- VAPE ThreadFix: Change thread identity if available
+-- VAPE ThreadFix: Change thread identity to level 8
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
-    pcall(function() setthreadidentity(8) end)
+    local success = pcall(function() 
+        setthreadidentity(8) 
+    end)
 end
 
 -- VAPE Anti-detect: Protected service references with cloneref
@@ -15,6 +17,17 @@ end
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
     return success and result or nil
+end
+
+-- VAPE Anti-detect: Random string generator
+local function randomString(length)
+    local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    local result = ''
+    for i = 1, length do
+        local rand = math.random(1, #chars)
+        result = result .. chars:sub(rand, rand)
+    end
+    return result
 end
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local Players: Players = cloneref(game:GetService("Players"))
@@ -29,22 +42,52 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
--- VAPE Anti-detect: Multiple fallbacks for protection
+-- VAPE Anti-detect: Multiple fallbacks for protection with extra obfuscation
 local protectgui = protectgui or (syn and syn.protect_gui) or (function()
     local protected = {}
     return function(gui)
         if gui then
             protected[gui] = true
-            -- Try to hide from detection
+            -- VAPE technique: Randomize name immediately
             secureCall(function()
-                gui.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+                gui.Name = randomString(math.random(8, 16))
+            end)
+            -- Additional protection: Clone reference to prevent tracking
+            pcall(function()
+                if cloneref then
+                    gui = cloneref(gui)
+                end
             end)
         end
     end
 end)()
 
 local gethui = gethui or function()
-    return secureCall(function() return game:GetService("CoreGui") end) or CoreGui
+    return secureCall(function() 
+        local cg = game:GetService("CoreGui")
+        return cloneref and cloneref(cg) or cg
+    end) or CoreGui
+end
+
+-- VAPE Anti-detect: Spoof getrenv to hide executor detection
+if getrenv and setreadonly then
+    pcall(function()
+        local env = getrenv()
+        setreadonly(env, false)
+        env.script = nil
+        setreadonly(env, true)
+    end)
+end
+
+-- VAPE technique: Hide from getgc scanning
+local gc_protect = function(tbl)
+    pcall(function()
+        setmetatable(tbl, {
+            __mode = "k",
+            __metatable = randomString(16),
+            __tostring = function() return randomString(12) end
+        })
+    end)
 end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -395,36 +438,22 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// VAPE-Style FULLSCREEN Blur Function \\--
-local function addFullscreenBlur(parent, opacity)
-    opacity = opacity or 0.05 -- Más ligero que VAPE (0.1)
-    
-    -- Create a fullscreen frame for blur
-    local blurFrame = Instance.new('Frame')
-    blurFrame.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
-    blurFrame.Size = UDim2.new(1, 0, 1, 0)
-    blurFrame.Position = UDim2.new(0, 0, 0, 0)
-    blurFrame.BackgroundTransparency = 1
-    blurFrame.BorderSizePixel = 0
-    blurFrame.ZIndex = -1000
-    blurFrame.Parent = parent
-    
-    -- Add blur image to cover entire screen
+--// VAPE-Style Blur Function (EXACT copy from VAPE) \\--
+local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
-    blur.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
-    blur.Size = UDim2.new(1, 100, 1, 100)
-    blur.Position = UDim2.fromOffset(-50, -50)
-    blur.AnchorPoint = Vector2.new(0, 0)
+    blur.Name = randomString(8)
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
     blur.Image = 'rbxassetid://14898786664'
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
-    blur.ImageTransparency = 1 - opacity
-    blur.ZIndex = -1000
+    blur.ImageTransparency = 1 - (Library.BlurSize or 0.05)
+    blur.ZIndex = 0
     blur.BorderSizePixel = 0
-    blur.Parent = blurFrame
+    blur.Parent = parent
     
-    return blurFrame
+    return blur
 end
 
 --// Basic Functions \\--
@@ -1189,10 +1218,11 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8),
-    DisplayOrder = math.random(900, 999),
+    Name = randomString(12),
+    DisplayOrder = math.random(800, 999),
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -5072,27 +5102,35 @@ end
 function Library:SetBlur(enabled: boolean)
     Library.ShowBlur = enabled
     
-    -- Apply immediately if toggled
-    if Library.Toggled then
-        if enabled then
-            -- Add blur if not exists
-            local existingBlur = nil
-            for _, child in ipairs(ScreenGui:GetChildren()) do
-                if child:IsA("Frame") and child.ZIndex == -1000 then
-                    existingBlur = child
-                    break
-                end
+    -- Find MainFrame
+    local MainFrame = nil
+    for _, child in ipairs(ScreenGui:GetChildren()) do
+        if child:IsA("Frame") and child.Visible then
+            MainFrame = child
+            break
+        end
+    end
+    
+    if not MainFrame then return end
+    
+    if enabled then
+        -- Add blur if not exists
+        local existingBlur = nil
+        for _, child in ipairs(MainFrame:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                existingBlur = child
+                break
             end
-            
-            if not existingBlur then
-                addFullscreenBlur(ScreenGui, Library.BlurSize or 0.05)
-            end
-        else
-            -- Remove blur
-            for _, child in ipairs(ScreenGui:GetChildren()) do
-                if child:IsA("Frame") and child.ZIndex == -1000 then
-                    child:Destroy()
-                end
+        end
+        
+        if not existingBlur then
+            addBlur(MainFrame)
+        end
+    else
+        -- Remove blur
+        for _, child in ipairs(MainFrame:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                child:Destroy()
             end
         end
     end
@@ -5101,15 +5139,22 @@ end
 function Library:SetBlurSize(size: number)
     Library.BlurSize = math.clamp(size, 0, 1)
     
+    -- Find MainFrame
+    local MainFrame = nil
+    for _, child in ipairs(ScreenGui:GetChildren()) do
+        if child:IsA("Frame") then
+            MainFrame = child
+            break
+        end
+    end
+    
+    if not MainFrame then return end
+    
     -- Update existing blur if present
-    if Library.Toggled and Library.ShowBlur then
-        for _, child in ipairs(ScreenGui:GetChildren()) do
-            if child:IsA("Frame") and child.ZIndex == -1000 then
-                for _, subchild in ipairs(child:GetChildren()) do
-                    if subchild:IsA("ImageLabel") and subchild.Image == 'rbxassetid://14898786664' then
-                        subchild.ImageTransparency = 1 - Library.BlurSize
-                    end
-                end
+    if Library.ShowBlur then
+        for _, child in ipairs(MainFrame:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                child.ImageTransparency = 1 - Library.BlurSize
             end
         end
     end
@@ -5399,7 +5444,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(game:GetService("HttpService"):GenerateGUID(false):sub(1, 8))
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(randomString(12))
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -5412,7 +5457,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = secureCall(function() return game:GetService("HttpService"):GenerateGUID(false):sub(1, 8) end) or "Main",
+            Name = randomString(10),
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5426,6 +5471,11 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
+        
+        -- VAPE-style blur: Add directly to MainFrame
+        if Library.ShowBlur then
+            addBlur(MainFrame)
+        end
         
         do
             local Lines = {
@@ -5708,7 +5758,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = secureCall(function() return game:GetService("HttpService"):GenerateGUID(false):sub(1, 8) end) or "C",
+            Name = randomString(10),
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
             Parent = MainFrame,
@@ -6614,25 +6664,12 @@ function Library:CreateWindow(WindowInfo)
 
         MainFrame.Visible = Library.Toggled
         
-        -- VAPE-style FULLSCREEN blur: Add/remove when toggling
-        if Library.Toggled then
-            -- Find any existing blur frame
-            local existingBlur = nil
-            for _, child in ipairs(ScreenGui:GetChildren()) do
-                if child:IsA("Frame") and child.ZIndex == -1000 then
-                    existingBlur = child
+        -- VAPE blur visibility control (blur stays on MainFrame, just toggle with UI)
+        if Library.ShowBlur then
+            for _, child in ipairs(MainFrame:GetChildren()) do
+                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                    child.ImageTransparency = 1 - (Library.BlurSize or 0.05)
                     break
-                end
-            end
-            
-            if not existingBlur and Library.ShowBlur then
-                addFullscreenBlur(ScreenGui, Library.BlurSize or 0.05)
-            end
-        else
-            -- Remove blur when hiding
-            for _, child in ipairs(ScreenGui:GetChildren()) do
-                if child:IsA("Frame") and child.ZIndex == -1000 then
-                    child:Destroy()
                 end
             end
         end
@@ -6735,8 +6772,12 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
+-- VAPE Anti-detect: Protect Library table from garbage collection scanning
+gc_protect(Library)
+gc_protect(Library.Scheme)
+
 -- VAPE Anti-detect: Store with random key and obfuscated reference
-local randomKey = game:GetService("HttpService"):GenerateGUID(false):sub(1, 12)
+local randomKey = randomString(math.random(10, 16))
 local _G_backup = _G
 
 -- Store in multiple locations for redundancy (VAPE technique)
@@ -6749,14 +6790,37 @@ end)
 secureCall(function()
     if not getgenv().Library then
         getgenv().Library = Library
+        gc_protect(getgenv().Library)
     end
 end)
 
--- VAPE technique: Clean up detectable strings
+-- VAPE technique: Clean up detectable strings and randomize
 if Library.ScreenGui then
     secureCall(function()
-        Library.ScreenGui.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+        Library.ScreenGui.Name = randomString(math.random(10, 18))
+        -- Hide from Parent scan
+        task.spawn(function()
+            while Library.ScreenGui and Library.ScreenGui.Parent do
+                task.wait(math.random(5, 15))
+                if Library.ScreenGui then
+                    Library.ScreenGui.Name = randomString(math.random(10, 18))
+                end
+            end
+        end)
     end)
 end
+
+-- VAPE Anti-detect: Remove script environment traces
+pcall(function()
+    if getfenv and setfenv then
+        local env = getfenv(0)
+        setfenv(0, setmetatable({}, {
+            __index = function(_, k)
+                return env[k]
+            end,
+            __metatable = randomString(12)
+        }))
+    end
+end)
 
 return Library

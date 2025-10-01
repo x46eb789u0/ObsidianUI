@@ -1,33 +1,6 @@
---[[ Hi
-		Skidder
-				2.0
-						]]--
-
-local ThreadFix = setthreadidentity and true or false
-if ThreadFix then
-    local success = pcall(function() 
-        setthreadidentity(8) 
-    end)
-end
-
-local cloneref = cloneref or function(obj)
-    return obj
-end
-
-local secureCall = function(func, ...)
-    local success, result = pcall(func, ...)
-    return success and result or nil
-end
-
-local function randomString(length)
-    local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    local result = ''
-    for i = 1, length do
-        local rand = math.random(1, #chars)
-        result = result .. chars:sub(rand, rand)
-    end
-    return result
-end
+local cloneref = (cloneref or clonereference or function(instance: any)
+    return instance
+end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
@@ -41,52 +14,9 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
-
-local protectgui = protectgui or (syn and syn.protect_gui) or (function()
-    local protected = {}
-    return function(gui)
-        if gui then
-            protected[gui] = true
-
-            secureCall(function()
-                gui.Name = randomString(math.random(8, 16))
-            end)
-
-            pcall(function()
-                if cloneref then
-                    gui = cloneref(gui)
-                end
-            end)
-        end
-    end
-end)()
-
+local protectgui = protectgui or (syn and syn.protect_gui) or function() end
 local gethui = gethui or function()
-    return secureCall(function() 
-        local cg = game:GetService("CoreGui")
-        return cloneref and cloneref(cg) or cg
-    end) or CoreGui
-end
-
---[[
-if getrenv and setreadonly then
-    pcall(function()
-        local env = getrenv()
-        setreadonly(env, false)
-        env.script = nil
-        setreadonly(env, true)
-    end)
-end
---]]
-
-local gc_protect = function(tbl)
-    pcall(function()
-        setmetatable(tbl, {
-            __mode = "k",
-            __metatable = randomString(16),
-            __tostring = function() return randomString(12) end
-        })
-    end)
+    return CoreGui
 end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -120,8 +50,8 @@ local Library = {
     Notifications = {},
 
     ToggleKeybind = Enum.KeyCode.RightControl,
-    TweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 
     Toggled = false,
     Unloaded = false,
@@ -132,6 +62,7 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
+    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -175,6 +106,13 @@ local ObsidianImageManager = {
         SaturationMap = {
             RobloxId = 4155801252,
             Path = "ObsidianUI/assets/SaturationMap.png",
+
+            Id = nil
+        },
+        
+        Blur = {
+            RobloxId = 14898786664,
+            Path = "ObsidianUI/assets/blur.png",
 
             Id = nil
         }
@@ -323,6 +261,7 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
+        ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
@@ -434,6 +373,21 @@ local Sizes = {
 }
 
 --// Basic Functions \\--
+local function addBlur(parent)
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'Blur'
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.BackgroundTransparency = 1
+    blur.Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664'
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ZIndex = 0
+    blur.Parent = parent
+
+    return blur
+end
+
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
         return UDim.new(Dimension.Scale, Dimension.Offset * Library.DPIScale)
@@ -515,58 +469,6 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
-
-local function addBlur(parent)
-    local blur = Instance.new('ImageLabel')
-    blur.Name = 'Blur'
-    blur.Size = UDim2.new(1, 89, 1, 52)
-    blur.Position = UDim2.fromOffset(-48, -31)
-    blur.BackgroundTransparency = 1
-    blur.Image = 'rbxassetid://14898786664'
-    blur.ScaleType = Enum.ScaleType.Slice
-    blur.SliceCenter = Rect.new(52, 31, 261, 502)
-    blur.Visible = false
-    blur.Parent = parent
-    blur.ZIndex = 0
-
-    return blur
-end
-
-local VapeTween = {
-    tweens = {},
-    tweenstwo = {}
-}
-
-function VapeTween:Tween(obj, tweeninfo, goal, tab)
-    tab = tab or self.tweens
-    if tab[obj] then
-        tab[obj]:Cancel()
-        tab[obj] = nil
-    end
-
-    if obj.Parent and obj.Visible then
-        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
-        tab[obj].Completed:Once(function()
-            if tab then
-                tab[obj] = nil
-                tab = nil
-            end
-        end)
-        tab[obj]:Play()
-    else
-        for i, v in goal do
-            obj[i] = v
-        end
-    end
-end
-
-function VapeTween:Cancel(obj)
-    if self.tweens[obj] then
-        self.tweens[obj]:Cancel()
-        self.tweens[obj] = nil
-    end
-end
-
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -1131,6 +1033,7 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
         elseif ThemeProperties[k] then
             ThemeProperties[k] = nil
         elseif k ~= "Text" and (Library.Scheme[v] or typeof(v) == "function") then
+            -- me when Red in dropdowns break things (temp fix - or perm idk if deivid will do something about this)
             ThemeProperties[k] = v
             Instance[k] = Library.Scheme[v] or v()
             continue
@@ -1209,11 +1112,9 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = randomString(12),
-    DisplayOrder = math.random(800, 999),
+    Name = "Obsidian",
+    DisplayOrder = 999,
     ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -1232,7 +1133,42 @@ local ModalElement = New("TextButton", {
     Parent = ScreenGui
 })
 
---// Custom Cursor REMOVED for anti-detect (not needed)
+--// Cursor
+local Cursor
+do
+    Cursor = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Size = UDim2.fromOffset(9, 1),
+        Visible = false,
+        ZIndex = 999,
+        Parent = ScreenGui,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = Cursor,
+    })
+
+    local CursorV = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(1, 9),
+        Parent = Cursor,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = CursorV,
+    })
+end
 
 --// Notification
 local NotificationArea
@@ -1265,16 +1201,6 @@ end
 function Library:GetDarkerColor(Color: Color3): Color3
     local H, S, V = Color:ToHSV()
     return Color3.fromHSV(H, S, V / 2)
-end
-
-function Library:ColorDark(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
-end
-
-function Library:ColorLight(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v - num or v + num, 0, 1))
 end
 
 function Library:GetKeyString(KeyCode: Enum.KeyCode)
@@ -1863,8 +1789,8 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
             and not (CurrentMenu and Library:MouseIsOverFrame(CurrentMenu.Menu, Mouse))
         do
             TooltipLabel.Position = UDim2.fromOffset(
-                Mouse.X + 14,
-                Mouse.Y + 12
+                Mouse.X + (Library.ShowCustomCursor and 8 or 14),
+                Mouse.Y + (Library.ShowCustomCursor and 8 or 12)
             )
 
             RunService.RenderStepped:Wait()
@@ -5088,7 +5014,6 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
-
 function Library:Notify(...)
     local Data = {}
     local Info = select(1, ...)
@@ -5358,12 +5283,12 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
+    Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
-    local MainFrameBlur
     local SearchBox
     local CurrentTabInfo
     local CurrentTabLabel
@@ -5372,7 +5297,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(randomString(12))
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("Keybinds")
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -5385,7 +5310,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = randomString(10),
+            Name = "Main",
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5395,13 +5320,11 @@ function Library:CreateWindow(WindowInfo)
                 Position = true,
             },
         })
+        addBlur(MainFrame)
         New("UICorner", {
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-        
-        MainFrameBlur = addBlur(MainFrame)
-        
         do
             local Lines = {
                 {
@@ -5445,7 +5368,6 @@ function Library:CreateWindow(WindowInfo)
         local TopBar = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 48),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         Library:MakeDraggable(MainFrame, TopBar, false, true)
@@ -5608,7 +5530,6 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         do
@@ -5672,7 +5593,6 @@ function Library:CreateWindow(WindowInfo)
             Position = UDim2.fromOffset(0, 49),
             ScrollBarThickness = 0,
             Size = UDim2.new(0.3, 0, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -5686,10 +5606,9 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = randomString(10),
+            Name = "Container",
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -6593,15 +6512,28 @@ function Library:CreateWindow(WindowInfo)
 
         MainFrame.Visible = Library.Toggled
         
-        if MainFrameBlur then
-            MainFrameBlur.Visible = Library.Toggled
-        end
-        
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
         end
 
-        if not Library.Toggled then
+        if Library.Toggled and not Library.IsMobile then
+            local OldMouseIconEnabled = UserInputService.MouseIconEnabled
+            pcall(function()
+                RunService:UnbindFromRenderStep("ShowCursor")
+            end)
+            RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
+                UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
+
+                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
+                Cursor.Visible = Library.ShowCustomCursor
+
+                if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
+                    UserInputService.MouseIconEnabled = OldMouseIconEnabled
+                    Cursor.Visible = false
+                    RunService:UnbindFromRenderStep("ShowCursor")
+                end
+            end)
+        elseif not Library.Toggled then
             TooltipLabel.Visible = false
             for _, Option in pairs(Library.Options) do
                 if Option.Type == "ColorPicker" then
@@ -6695,46 +6627,5 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-gc_protect(Library)
-gc_protect(Library.Scheme)
-
-local randomKey = randomString(math.random(10, 16))
-local _G_backup = _G
-
-secureCall(function()
-    getgenv()[randomKey] = Library
-    _G_backup[randomKey] = Library
-end)
-
-secureCall(function()
-    if not getgenv().Library then
-        getgenv().Library = Library
-    end
-end)
-
-if Library.ScreenGui then
-    secureCall(function()
-        Library.ScreenGui.Name = randomString(math.random(10, 18))
-        task.spawn(function()
-            while Library.ScreenGui and Library.ScreenGui.Parent do
-                task.wait(math.random(5, 15))
-                if Library.ScreenGui then
-                    Library.ScreenGui.Name = randomString(math.random(10, 18))
-                end
-            end
-        end)
-    end)
-end
-pcall(function()
-    if getfenv and setfenv then
-        local env = getfenv(0)
-        setfenv(0, setmetatable({}, {
-            __index = function(_, k)
-                return env[k]
-            end,
-            __metatable = randomString(12)
-        }))
-    end
-end)
-
+getgenv().Library = Library
 return Library

@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any) -- erm
+local cloneref = (cloneref or clonereference or function(instance: any) -- another aattempt lol
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -101,51 +101,6 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
-}
-
--- Metatable para interceptar cambios en ShowBlur y BlurSize
-local LibraryMetatable = {
-    __index = function(t, key)
-        if key == "ShowBlur" then
-            return _ShowBlur
-        elseif key == "BlurSize" then
-            return _BlurSize
-        end
-        return rawget(t, key)
-    end,
-    __newindex = function(t, key, value)
-        if key == "ShowBlur" then
-            local oldValue = _ShowBlur
-            _ShowBlur = value
-            
-            -- Si se desactiva ShowBlur, limpiar el blur
-            if not value and oldValue then
-                if BlurAnimationThread then
-                    task.cancel(BlurAnimationThread)
-                    BlurAnimationThread = nil
-                end
-                if rawget(t, "BlurEffect") then
-                    rawget(t, "BlurEffect").Size = 0
-                end
-                rawset(t, "BlurEnabled", false)
-            end
-            
-            -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
-            -- Siempre activar si ShowBlur es true y la UI está abierta
-            if value and rawget(t, "Toggled") then
-                animateBlur(true)
-            end
-        elseif key == "BlurSize" then
-            _BlurSize = value
-            
-            -- Si el blur está activo, actualizar su tamaño inmediatamente
-            if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
-                rawget(t, "BlurEffect").Size = value
-            end
-        else
-            rawset(t, key, value)
-        end
-    end
 }
 
 local ObsidianImageManager = {
@@ -512,8 +467,54 @@ local function animateBlur(enabled)
     end)
 end
 
--- Aplicar metatable después de que animateBlur esté definida
-setmetatable(Library, LibraryMetatable)
+-- Metatable para interceptar cambios en ShowBlur y BlurSize
+-- Definido aquí después de animateBlur para evitar referencias a funciones no definidas
+do
+    local LibraryMetatable = {
+        __index = function(t, key)
+            if key == "ShowBlur" then
+                return _ShowBlur
+            elseif key == "BlurSize" then
+                return _BlurSize
+            end
+            return rawget(t, key)
+        end,
+        __newindex = function(t, key, value)
+            if key == "ShowBlur" then
+                local oldValue = _ShowBlur
+                _ShowBlur = value
+                
+                -- Si se desactiva ShowBlur, limpiar el blur
+                if not value and oldValue then
+                    if BlurAnimationThread then
+                        task.cancel(BlurAnimationThread)
+                        BlurAnimationThread = nil
+                    end
+                    if rawget(t, "BlurEffect") then
+                        rawget(t, "BlurEffect").Size = 0
+                    end
+                    rawset(t, "BlurEnabled", false)
+                end
+                
+                -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
+                -- Siempre activar si ShowBlur es true y la UI está abierta
+                if value and rawget(t, "Toggled") then
+                    animateBlur(true)
+                end
+            elseif key == "BlurSize" then
+                _BlurSize = value
+                
+                -- Si el blur está activo, actualizar su tamaño inmediatamente
+                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
+                    rawget(t, "BlurEffect").Size = value
+                end
+            else
+                rawset(t, key, value)
+            end
+        end
+    }
+    setmetatable(Library, LibraryMetatable)
+end
 
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then

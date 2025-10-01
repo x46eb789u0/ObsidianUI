@@ -1,7 +1,10 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = (setthreadidentity or setidentity or set_thread_identity) and true or false -- tired
 if ThreadFix then
     local success = pcall(function() 
-        setthreadidentity(8) 
+        local setthread = setthreadidentity or setidentity or set_thread_identity
+        if setthread then
+            setthread(8)
+        end
     end)
 end
 

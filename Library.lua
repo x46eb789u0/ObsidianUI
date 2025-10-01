@@ -1,4 +1,5 @@
-local ThreadFix = (setthreadidentity or setidentity or set_thread_identity) and true or false -- tired
+-- tireeeeeeeeeeeeeeed
+local ThreadFix = (setthreadidentity or setidentity or set_thread_identity) and true or false
 if ThreadFix then
     local success = pcall(function() 
         local setthread = setthreadidentity or setidentity or set_thread_identity
@@ -515,15 +516,16 @@ function Library:AddDraggableButton(Text: string, Func)
 
     function Table:SetText(NewText: string)
         Button.Text = NewText
-        local Bounds = GetTextBounds(NewText, 16, Button.FontFace)
+        local X, Y = Library:GetTextBounds(NewText, Library.Scheme.Font, 16)
         Button.Size = UDim2.fromOffset(
-            (Bounds.X + 16) * Library.DPIScale,
-            (Bounds.Y + 8) * Library.DPIScale
+            (X + 16) * Library.DPIScale,
+            (Y + 8) * Library.DPIScale
         )
     end
     Table:SetText(Text)
 
     return Table
+{{ ... }}
 end
 
 function Library:CreateMobileLockButton()

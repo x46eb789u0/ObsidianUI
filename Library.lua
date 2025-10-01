@@ -1,7 +1,15 @@
---MAYBE
+--[[ VAPE Anti-Detect Edition - Randomized naming and protected references --]]
+
+-- VAPE Anti-detect technique: Protected service references
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
+
+-- VAPE method: Secure references to prevent detection
+local secureCall = function(func, ...)
+    local success, result = pcall(func, ...)
+    return success and result or nil
+end
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
@@ -15,9 +23,22 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
-local protectgui = protectgui or (syn and syn.protect_gui) or function() end
+-- VAPE Anti-detect: Multiple fallbacks for protection
+local protectgui = protectgui or (syn and syn.protect_gui) or (function()
+    local protected = {}
+    return function(gui)
+        if gui then
+            protected[gui] = true
+            -- Try to hide from detection
+            secureCall(function()
+                gui.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+            end)
+        end
+    end
+end)()
+
 local gethui = gethui or function()
-    return CoreGui
+    return secureCall(function() return game:GetService("CoreGui") end) or CoreGui
 end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -1145,7 +1166,7 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = "Obsidian",
+    Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8),
     DisplayOrder = 999,
     ResetOnSpawn = false,
 })
@@ -5354,7 +5375,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = "Main",
+            Name = secureCall(function() return game:GetService("HttpService"):GenerateGUID(false):sub(1, 8) end) or "Main",
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5368,9 +5389,6 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-        
-        -- Add VAPE-style blur with 10% opacity
-        addBlur(MainFrame, 0.1)
         
         do
             local Lines = {
@@ -6559,6 +6577,18 @@ function Library:CreateWindow(WindowInfo)
 
         MainFrame.Visible = Library.Toggled
         
+        -- VAPE-style blur: Add/remove when toggling
+        if Library.Toggled then
+            if not MainFrame:FindFirstChild("VapeBlur") then
+                addBlur(MainFrame, 0.1)
+            end
+        else
+            local existingBlur = MainFrame:FindFirstChild("VapeBlur")
+            if existingBlur then
+                existingBlur:Destroy()
+            end
+        end
+        
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
         end
@@ -6674,5 +6704,13 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-getgenv().Library = Library
+-- Anti-detect: Use random key instead of "Library"
+local randomKey = game:GetService("HttpService"):GenerateGUID(false):sub(1, 12)
+getgenv()[randomKey] = Library
+
+-- Also keep Library for compatibility but mark as protected
+if not getgenv().Library then
+    getgenv().Library = Library
+end
+
 return Library

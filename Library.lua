@@ -1,6 +1,3 @@
---[[ VAPE Anti-Detect Edition Blur - Maximum Protection --]]
-
--- VAPE ThreadFix: Change thread identity to level 8
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
@@ -8,18 +5,15 @@ if ThreadFix then
     end)
 end
 
--- VAPE Anti-detect: Protected service references with cloneref
 local cloneref = cloneref or function(obj)
     return obj
 end
 
--- VAPE Secure call wrapper
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
     return success and result or nil
 end
 
--- VAPE Anti-detect: Random string generator
 local function randomString(length)
     local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
     local result = ''
@@ -42,17 +36,17 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
--- VAPE Anti-detect: Multiple fallbacks for protection with extra obfuscation
+
 local protectgui = protectgui or (syn and syn.protect_gui) or (function()
     local protected = {}
     return function(gui)
         if gui then
             protected[gui] = true
-            -- VAPE technique: Randomize name immediately
+
             secureCall(function()
                 gui.Name = randomString(math.random(8, 16))
             end)
-            -- Additional protection: Clone reference to prevent tracking
+
             pcall(function()
                 if cloneref then
                     gui = cloneref(gui)
@@ -69,7 +63,6 @@ local gethui = gethui or function()
     end) or CoreGui
 end
 
--- VAPE Anti-detect: Spoof getrenv to hide executor detection
 if getrenv and setreadonly then
     pcall(function()
         local env = getrenv()
@@ -79,7 +72,6 @@ if getrenv and setreadonly then
     end)
 end
 
--- VAPE technique: Hide from getgc scanning
 local gc_protect = function(tbl)
     pcall(function()
         setmetatable(tbl, {
@@ -448,9 +440,6 @@ local function addBlur(parent)
     blur.Image = 'rbxassetid://14898786664'
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
-    blur.ImageTransparency = 1 - (Library.BlurSize or 0.05)
-    blur.ZIndex = 1
-    blur.BorderSizePixel = 0
     blur.Parent = parent
     
     return blur
@@ -1139,7 +1128,6 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
         elseif ThemeProperties[k] then
             ThemeProperties[k] = nil
         elseif k ~= "Text" and (Library.Scheme[v] or typeof(v) == "function") then
-            -- me when Red in dropdowns break things (temp fix - or perm idk if deivid will do something about this)
             ThemeProperties[k] = v
             Instance[k] = Library.Scheme[v] or v()
             continue
@@ -5102,7 +5090,6 @@ end
 function Library:SetBlur(enabled: boolean)
     Library.ShowBlur = enabled
     
-    -- Find MainFrame
     local MainFrame = nil
     for _, child in ipairs(ScreenGui:GetChildren()) do
         if child:IsA("Frame") and child.Visible then
@@ -5114,7 +5101,6 @@ function Library:SetBlur(enabled: boolean)
     if not MainFrame then return end
     
     if enabled then
-        -- Add blur if not exists
         local existingBlur = nil
         for _, child in ipairs(MainFrame:GetChildren()) do
             if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
@@ -5127,7 +5113,6 @@ function Library:SetBlur(enabled: boolean)
             addBlur(MainFrame)
         end
     else
-        -- Remove blur
         for _, child in ipairs(MainFrame:GetChildren()) do
             if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
                 child:Destroy()
@@ -5136,29 +5121,6 @@ function Library:SetBlur(enabled: boolean)
     end
 end
 
-function Library:SetBlurSize(size: number)
-    Library.BlurSize = math.clamp(size, 0, 1)
-    
-    -- Find MainFrame
-    local MainFrame = nil
-    for _, child in ipairs(ScreenGui:GetChildren()) do
-        if child:IsA("Frame") then
-            MainFrame = child
-            break
-        end
-    end
-    
-    if not MainFrame then return end
-    
-    -- Update existing blur if present
-    if Library.ShowBlur then
-        for _, child in ipairs(MainFrame:GetChildren()) do
-            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
-                child.ImageTransparency = 1 - Library.BlurSize
-            end
-        end
-    end
-end
 
 function Library:Notify(...)
     local Data = {}
@@ -5472,7 +5434,6 @@ function Library:CreateWindow(WindowInfo)
             Parent = MainFrame,
         })
         
-        -- VAPE-style blur: Add directly to MainFrame
         if Library.ShowBlur then
             addBlur(MainFrame)
         end
@@ -6668,11 +6629,10 @@ function Library:CreateWindow(WindowInfo)
 
         MainFrame.Visible = Library.Toggled
         
-        -- VAPE blur visibility control (blur stays on MainFrame, just toggle with UI)
         if Library.ShowBlur then
             for _, child in ipairs(MainFrame:GetChildren()) do
                 if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
-                    child.ImageTransparency = 1 - (Library.BlurSize or 0.05)
+                    child.Visible = Library.Toggled
                     break
                 end
             end
@@ -6776,33 +6736,26 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
--- VAPE Anti-detect: Protect Library table from garbage collection scanning
 gc_protect(Library)
 gc_protect(Library.Scheme)
 
--- VAPE Anti-detect: Store with random key and obfuscated reference
 local randomKey = randomString(math.random(10, 16))
 local _G_backup = _G
 
--- Store in multiple locations for redundancy (VAPE technique)
 secureCall(function()
     getgenv()[randomKey] = Library
     _G_backup[randomKey] = Library
 end)
 
--- Only set Library if it doesn't exist (avoid overwriting detection)
 secureCall(function()
     if not getgenv().Library then
         getgenv().Library = Library
-        gc_protect(getgenv().Library)
     end
 end)
 
--- VAPE technique: Clean up detectable strings and randomize
 if Library.ScreenGui then
     secureCall(function()
         Library.ScreenGui.Name = randomString(math.random(10, 18))
-        -- Hide from Parent scan
         task.spawn(function()
             while Library.ScreenGui and Library.ScreenGui.Parent do
                 task.wait(math.random(5, 15))
@@ -6813,8 +6766,6 @@ if Library.ScreenGui then
         end)
     end)
 end
-
--- VAPE Anti-detect: Remove script environment traces
 pcall(function()
     if getfenv and setfenv then
         local env = getfenv(0)

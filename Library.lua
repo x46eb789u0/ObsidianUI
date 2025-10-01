@@ -511,6 +511,22 @@ local function StopTween(Tween: TweenBase)
     Tween:Cancel()
 end
 
+local function addBlur(parent)
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'Blur'
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.BackgroundTransparency = 1
+    blur.Image = 'rbxassetid://14898786664'
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.Visible = false
+    blur.Parent = parent
+    blur.ZIndex = 0
+
+    return blur
+end
+
 local VapeTween = {
     tweens = {},
     tweenstwo = {}
@@ -5342,6 +5358,7 @@ function Library:CreateWindow(WindowInfo)
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
+    local MainFrameBlur
     local SearchBox
     local CurrentTabInfo
     local CurrentTabLabel
@@ -5377,6 +5394,8 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
+
+        MainFrameBlur = addBlur(MainFrame)
         
         do
             local Lines = {
@@ -6568,6 +6587,10 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
+
+        if MainFrameBlur then
+            MainFrameBlur.Visible = Library.Toggled
+        end
         
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled

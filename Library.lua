@@ -98,6 +98,8 @@ local Library = {
     BlurEffect = nil,
     BlurEnabled = false,
     BlurAnimating = false,
+    ShowBlur = true,
+    BlurSize = 6,
 }
 
 local ObsidianImageManager = {
@@ -271,7 +273,9 @@ local Templates = {
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
-        UnlockMouseWhileOpen = true
+        UnlockMouseWhileOpen = true,
+        ShowBlur = true,
+        BlurSize = 24
     },
     Toggle = {
         Text = "Toggle",
@@ -404,7 +408,7 @@ local function createBlurEffect()
 end
 
 local function animateBlur(enabled)
-    if Library.BlurAnimating then
+    if Library.BlurAnimating or not Library.ShowBlur then
         return
     end
 
@@ -417,7 +421,7 @@ local function animateBlur(enabled)
 
     if enabled then
         -- Activar blur con animación
-        local targetSize = 24
+        local targetSize = Library.BlurSize
         local increment = 2
 
         task.spawn(function()
@@ -5077,6 +5081,32 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
+function Library:SetShowBlur(Show: boolean)
+    Library.ShowBlur = Show
+    
+    -- Si se desactiva ShowBlur mientras el blur está activo, desactivarlo inmediatamente
+    if not Show and Library.BlurEffect and Library.BlurEffect.Size > 0 then
+        Library.BlurEffect.Size = 0
+        Library.BlurEnabled = false
+        Library.BlurAnimating = false
+    end
+    
+    -- Si se activa ShowBlur y la UI está visible, activar el blur
+    if Show and Library.Toggled then
+        animateBlur(true)
+    end
+end
+
+function Library:SetBlurSize(Size: number)
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
+    Library.BlurSize = Size
+    
+    -- Si el blur está activo, actualizar su tamaño inmediatamente
+    if Library.BlurEffect and Library.BlurEnabled and Library.ShowBlur then
+        Library.BlurEffect.Size = Size
+    end
+end
+
 function Library:Notify(...)
     local Data = {}
     local Info = select(1, ...)
@@ -5349,6 +5379,8 @@ function Library:CreateWindow(WindowInfo)
     Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame

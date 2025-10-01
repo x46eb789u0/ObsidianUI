@@ -1,4 +1,4 @@
---[[ VAPE Anti-Detect Edition - Maximum Protection --]]
+--[[ VAPE Anti-Detect Edition Blur - Maximum Protection --]]
 
 -- VAPE ThreadFix: Change thread identity to level 8
 local ThreadFix = setthreadidentity and true or false
@@ -449,7 +449,7 @@ local function addBlur(parent)
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
     blur.ImageTransparency = 1 - (Library.BlurSize or 0.05)
-    blur.ZIndex = 0
+    blur.ZIndex = 1
     blur.BorderSizePixel = 0
     blur.Parent = parent
     
@@ -1222,7 +1222,7 @@ local ScreenGui = New("ScreenGui", {
     DisplayOrder = math.random(800, 999),
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -5520,6 +5520,7 @@ function Library:CreateWindow(WindowInfo)
         local TopBar = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 48),
+            ZIndex = 2,
             Parent = MainFrame,
         })
         Library:MakeDraggable(MainFrame, TopBar, false, true)
@@ -5682,6 +5683,7 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
+            ZIndex = 2,
             Parent = MainFrame,
         })
         do
@@ -5745,6 +5747,7 @@ function Library:CreateWindow(WindowInfo)
             Position = UDim2.fromOffset(0, 49),
             ScrollBarThickness = 0,
             Size = UDim2.new(0.3, 0, 1, -70),
+            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -5761,6 +5764,7 @@ function Library:CreateWindow(WindowInfo)
             Name = randomString(10),
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
+            ZIndex = 2,
             Parent = MainFrame,
         })
 

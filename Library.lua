@@ -1,3 +1,4 @@
+-- HI SKIDDER --
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
@@ -514,12 +515,12 @@ end
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
     blur.Name = 'Blur'
-    blur.Size = UDim2.fromScale(1, 1)
-    blur.Position = UDim2.fromScale(0, 0)
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
     blur.Image = 'rbxassetid://14898786664'
-    blur.ScaleType = Enum.ScaleType.Tile
-    blur.TileSize = UDim2.fromOffset(1920, 1080)
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
     blur.Visible = false
     blur.Parent = parent
     blur.ZIndex = 0

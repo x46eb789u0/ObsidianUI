@@ -126,7 +126,7 @@ local Library = {
 
     NotifySide = "Right",
     ShowBlur = true,
-    BlurSize = 0.05,
+    BlurSize = 1,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,

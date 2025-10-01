@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any) -- lol
+local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -131,7 +131,8 @@ local LibraryMetatable = {
             end
             
             -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
-            if value and not oldValue and rawget(t, "Toggled") then
+            -- Siempre activar si ShowBlur es true y la UI está abierta
+            if value and rawget(t, "Toggled") then
                 animateBlur(true)
             end
         elseif key == "BlurSize" then

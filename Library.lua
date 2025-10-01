@@ -1,4 +1,4 @@
-local cloneref = (cloneref or clonereference or function(instance: any) -- another aattempt lol
+local cloneref = (cloneref or clonereference or function(instance: any) -- hi moon dont skid, still fixing 
     return instance
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
@@ -30,8 +30,6 @@ local Options = {}
 local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local BlurAnimationThread = nil
-local _ShowBlur = true
-local _BlurSize = 13
 
 local Library = {
     LocalPlayer = LocalPlayer,
@@ -101,6 +99,11 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
+    ShowBlur = true,
+    BlurSize = 13,
+    
+    MobileLockButton = nil,
+    ShowMobileLockButton = true,
 }
 
 local ObsidianImageManager = {
@@ -276,7 +279,8 @@ local Templates = {
         MobileButtonsSide = "Left",
         UnlockMouseWhileOpen = true,
         ShowBlur = true,
-        BlurSize = 13
+        BlurSize = 13,
+        ShowMobileLockButton = true
     },
     Toggle = {
         Text = "Toggle",
@@ -409,7 +413,7 @@ local function createBlurEffect()
 end
 
 local function animateBlur(enabled)
-    if not _ShowBlur then
+    if not Library.ShowBlur then
         return
     end
 
@@ -426,12 +430,12 @@ local function animateBlur(enabled)
     end
 
     -- Calcular incremento dinámico basado en el BlurSize para animaciones más rápidas
-    local baseIncrement = math.max(2, _BlurSize / 12)
+    local baseIncrement = math.max(2, Library.BlurSize / 12)
     
     BlurAnimationThread = task.spawn(function()
         if enabled then
             -- Activar blur con animación
-            local targetSize = _BlurSize
+            local targetSize = Library.BlurSize
 
             while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
                 local currentSize = Library.BlurEffect.Size
@@ -465,55 +469,6 @@ local function animateBlur(enabled)
         
         BlurAnimationThread = nil
     end)
-end
-
--- Metatable para interceptar cambios en ShowBlur y BlurSize
--- Definido aquí después de animateBlur para evitar referencias a funciones no definidas
-do
-    local LibraryMetatable = {
-        __index = function(t, key)
-            if key == "ShowBlur" then
-                return _ShowBlur
-            elseif key == "BlurSize" then
-                return _BlurSize
-            end
-            return rawget(t, key)
-        end,
-        __newindex = function(t, key, value)
-            if key == "ShowBlur" then
-                local oldValue = _ShowBlur
-                _ShowBlur = value
-                
-                -- Si se desactiva ShowBlur, limpiar el blur
-                if not value and oldValue then
-                    if BlurAnimationThread then
-                        task.cancel(BlurAnimationThread)
-                        BlurAnimationThread = nil
-                    end
-                    if rawget(t, "BlurEffect") then
-                        rawget(t, "BlurEffect").Size = 0
-                    end
-                    rawset(t, "BlurEnabled", false)
-                end
-                
-                -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
-                -- Siempre activar si ShowBlur es true y la UI está abierta
-                if value and rawget(t, "Toggled") then
-                    animateBlur(true)
-                end
-            elseif key == "BlurSize" then
-                _BlurSize = value
-                
-                -- Si el blur está activo, actualizar su tamaño inmediatamente
-                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
-                    rawget(t, "BlurEffect").Size = value
-                end
-            else
-                rawset(t, key, value)
-            end
-        end
-    }
-    setmetatable(Library, LibraryMetatable)
 end
 
 local function ApplyDPIScale(Dimension, ExtraOffset)
@@ -5149,12 +5104,43 @@ function Library:SetNotifySide(Side: string)
 end
 
 function Library:SetShowBlur(Show: boolean)
-    Library.ShowBlur = Show  -- El metatable maneja toda la lógica
+    Library.ShowBlur = Show
+    
+    -- Si se desactiva ShowBlur, limpiar el blur inmediatamente
+    if not Show then
+        if BlurAnimationThread then
+            task.cancel(BlurAnimationThread)
+            BlurAnimationThread = nil
+        end
+        if Library.BlurEffect then
+            Library.BlurEffect.Size = 0
+        end
+        Library.BlurEnabled = false
+    end
+    
+    -- Si se activa ShowBlur y la UI está visible, activar el blur inmediatamente
+    if Show and Library.Toggled then
+        animateBlur(true)
+    end
 end
 
 function Library:SetBlurSize(Size: number)
     assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
-    Library.BlurSize = Size  -- El metatable maneja toda la lógica
+    Library.BlurSize = Size
+    
+    -- Si el blur está activo, actualizar su tamaño inmediatamente
+    if Library.BlurEffect and Library.BlurEnabled and Library.ShowBlur then
+        Library.BlurEffect.Size = Size
+    end
+end
+
+function Library:SetShowMobileLockButton(Show: boolean)
+    Library.ShowMobileLockButton = Show
+    
+    -- Actualizar visibilidad del botón Lock en móvil si existe
+    if Library.MobileLockButton then
+        Library.MobileLockButton.Button.Visible = Show
+    end
 end
 
 function Library:Notify(...)
@@ -6702,19 +6688,22 @@ function Library:CreateWindow(WindowInfo)
             Library:Toggle()
         end)
 
-        local LockButton = Library:AddDraggableButton("Lock", function(self)
+        Library.MobileLockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
         end)
+
+        -- Aplicar visibilidad inicial del botón Lock
+        Library.MobileLockButton.Button.Visible = WindowInfo.ShowMobileLockButton
 
         if WindowInfo.MobileButtonsSide == "Right" then
             ToggleButton.Button.Position = UDim2.new(1, -6, 0, 6)
             ToggleButton.Button.AnchorPoint = Vector2.new(1, 0)
 
-            LockButton.Button.Position = UDim2.new(1, -6, 0, 46)
-            LockButton.Button.AnchorPoint = Vector2.new(1, 0)
+            Library.MobileLockButton.Button.Position = UDim2.new(1, -6, 0, 46)
+            Library.MobileLockButton.Button.AnchorPoint = Vector2.new(1, 0)
         else
-            LockButton.Button.Position = UDim2.fromOffset(6, 46)
+            Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
 

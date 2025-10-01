@@ -1,4 +1,8 @@
--- HI SKIDDER --
+--[[ Hi
+		Skidder
+				2.0
+						]]--
+
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
@@ -5377,8 +5381,6 @@ function Library:CreateWindow(WindowInfo)
             Size = false,
         })
 
-        MainFrameBlur = addBlur(ScreenGui)
-
         MainFrame = New("Frame", {
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
@@ -5397,6 +5399,8 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
+        
+        MainFrameBlur = addBlur(MainFrame)
         
         do
             local Lines = {

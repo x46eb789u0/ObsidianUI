@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- huh
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -538,6 +538,8 @@ do
                 return _BlurSize
             elseif key == "ShowMobileLockButton" then
                 return _ShowMobileLockButton
+            elseif key == "ShowCustomCursor" then
+                return rawget(t, "ShowCustomCursor")
             end
             return rawget(t, key)
         end,
@@ -571,6 +573,14 @@ do
                 
                 if rawget(t, "MobileLockButton") then
                     rawget(t, "MobileLockButton").Button.Visible = value
+                end
+            elseif key == "ShowCustomCursor" then
+                rawset(t, key, value)
+                
+                -- Update cursor visibility immediately if toggled
+                if rawget(t, "Toggled") and Cursor then
+                    Cursor.Visible = value
+                    UserInputService.MouseIconEnabled = not value
                 end
             else
                 rawset(t, key, value)
@@ -6790,7 +6800,9 @@ function Library:CreateWindow(WindowInfo)
             RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
                 UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
 
-                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
+                local MouseLocation = UserInputService:GetMouseLocation()
+                local GuiInset = game:GetService("GuiService"):GetGuiInset()
+                Cursor.Position = UDim2.fromOffset(MouseLocation.X, MouseLocation.Y - GuiInset.Y)
                 Cursor.Visible = Library.ShowCustomCursor
 
                 if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then

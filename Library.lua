@@ -1,5 +1,4 @@
---// Yeah still dont skid, you will get frezeed\\--
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- lmao
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -139,6 +138,7 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
+    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -342,10 +342,14 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
+        ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
-        UnlockMouseWhileOpen = true
+        UnlockMouseWhileOpen = true,
+        ShowBlur = true,
+        BlurSize = 13,
+        ShowMobileLockButton = true
     },
     Toggle = {
         Text = "Toggle",

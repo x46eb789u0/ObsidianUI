@@ -1,4 +1,4 @@
--- UD?
+--MAYBE
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
@@ -15,6 +15,10 @@ local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
+local protectgui = protectgui or (syn and syn.protect_gui) or function() end
+local gethui = gethui or function()
+    return CoreGui
+end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Mouse = cloneref(LocalPlayer:GetMouse())
@@ -47,8 +51,8 @@ local Library = {
     Notifications = {},
 
     ToggleKeybind = Enum.KeyCode.RightControl,
-    TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    TweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
 
     Toggled = false,
     Unloaded = false,
@@ -167,7 +171,7 @@ do
             return
         end
 
-        local URLPath = AssetPath:gsub("Obsidian/", "")
+        local URLPath = AssetPath:gsub("ObsidianUI/", "")
         writefile(AssetPath, game:HttpGet(BaseURL .. URLPath))
     end
 
@@ -362,6 +366,23 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
+--// VAPE-Style Blur Function \\--
+local function addBlur(parent, opacity)
+    opacity = opacity or 0.1
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'VapeBlur'
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.BackgroundTransparency = 1
+    blur.Image = 'rbxassetid://14898786664'
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ImageTransparency = 1 - opacity
+    blur.ZIndex = 0
+    blur.Parent = parent
+    return blur
+end
+
 --// Basic Functions \\--
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
@@ -444,6 +465,43 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
+
+--// VAPE-Style Tween Manager \\--
+local VapeTween = {
+    tweens = {},
+    tweenstwo = {}
+}
+
+function VapeTween:Tween(obj, tweeninfo, goal, tab)
+    tab = tab or self.tweens
+    if tab[obj] then
+        tab[obj]:Cancel()
+        tab[obj] = nil
+    end
+
+    if obj.Parent and obj.Visible then
+        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
+        tab[obj].Completed:Once(function()
+            if tab then
+                tab[obj] = nil
+                tab = nil
+            end
+        end)
+        tab[obj]:Play()
+    else
+        for i, v in goal do
+            obj[i] = v
+        end
+    end
+end
+
+function VapeTween:Cancel(obj)
+    if self.tweens[obj] then
+        self.tweens[obj]:Cancel()
+        self.tweens[obj] = nil
+    end
+end
+
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -1082,7 +1140,8 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
         return
     end
 
-    SafeParentUI(UI, CoreGui)
+    pcall(protectgui, UI)
+    SafeParentUI(UI, gethui)
 end
 
 local ScreenGui = New("ScreenGui", {
@@ -1175,6 +1234,17 @@ end
 function Library:GetDarkerColor(Color: Color3): Color3
     local H, S, V = Color:ToHSV()
     return Color3.fromHSV(H, S, V / 2)
+end
+
+--// VAPE-Style Color Functions \\--
+function Library:ColorDark(col, num)
+    local h, s, v = col:ToHSV()
+    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
+end
+
+function Library:ColorLight(col, num)
+    local h, s, v = col:ToHSV()
+    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v - num or v + num, 0, 1))
 end
 
 function Library:GetKeyString(KeyCode: Enum.KeyCode)
@@ -5298,6 +5368,10 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
+        
+        -- Add VAPE-style blur with 10% opacity
+        addBlur(MainFrame, 0.1)
+        
         do
             local Lines = {
                 {
@@ -6602,4 +6676,3 @@ Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 getgenv().Library = Library
 return Library
-

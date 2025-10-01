@@ -1,11 +1,17 @@
---[[ VAPE Anti-Detect Edition - Randomized naming and protected references --]]
+--[[ VAPE Anti-Detect Edition - Full Protection (IG) --]]
 
--- VAPE Anti-detect technique: Protected service references
-local cloneref = (cloneref or clonereference or function(instance: any)
-    return instance
-end)
+-- VAPE ThreadFix: Change thread identity if available
+local ThreadFix = setthreadidentity and true or false
+if ThreadFix then
+    pcall(function() setthreadidentity(8) end)
+end
 
--- VAPE method: Secure references to prevent detection
+-- VAPE Anti-detect: Protected service references with cloneref
+local cloneref = cloneref or function(obj)
+    return obj
+end
+
+-- VAPE Secure call wrapper
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
     return success and result or nil
@@ -387,11 +393,11 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// VAPE-Style Blur Function \\--
+--// VAPE-Style Blur Function (Fixed visibility) \\--
 local function addBlur(parent, opacity)
     opacity = opacity or 0.1
     local blur = Instance.new('ImageLabel')
-    blur.Name = 'VapeBlur'
+    blur.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 6)
     blur.Size = UDim2.new(1, 89, 1, 52)
     blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
@@ -399,8 +405,18 @@ local function addBlur(parent, opacity)
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
     blur.ImageTransparency = 1 - opacity
-    blur.ZIndex = 0
+    blur.ZIndex = -1
+    blur.BorderSizePixel = 0
     blur.Parent = parent
+    
+    -- Ensure blur is visible
+    task.spawn(function()
+        task.wait(0.1)
+        if blur and blur.Parent then
+            blur.ImageTransparency = 1 - opacity
+        end
+    end)
+    
     return blur
 end
 
@@ -1167,8 +1183,9 @@ end
 
 local ScreenGui = New("ScreenGui", {
     Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8),
-    DisplayOrder = 999,
+    DisplayOrder = math.random(900, 999),
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -5671,7 +5688,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = "Container",
+            Name = secureCall(function() return game:GetService("HttpService"):GenerateGUID(false):sub(1, 8) end) or "C",
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
             Parent = MainFrame,
@@ -6579,13 +6596,24 @@ function Library:CreateWindow(WindowInfo)
         
         -- VAPE-style blur: Add/remove when toggling
         if Library.Toggled then
-            if not MainFrame:FindFirstChild("VapeBlur") then
+            -- Find any existing blur by checking for ImageLabel with blur image
+            local existingBlur = nil
+            for _, child in ipairs(MainFrame:GetChildren()) do
+                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                    existingBlur = child
+                    break
+                end
+            end
+            
+            if not existingBlur then
                 addBlur(MainFrame, 0.1)
             end
         else
-            local existingBlur = MainFrame:FindFirstChild("VapeBlur")
-            if existingBlur then
-                existingBlur:Destroy()
+            -- Remove blur when hiding
+            for _, child in ipairs(MainFrame:GetChildren()) do
+                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
+                    child:Destroy()
+                end
             end
         end
         
@@ -6595,10 +6623,11 @@ function Library:CreateWindow(WindowInfo)
 
         if Library.Toggled and not Library.IsMobile then
             local OldMouseIconEnabled = UserInputService.MouseIconEnabled
+            local bindName = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
             pcall(function()
-                RunService:UnbindFromRenderStep("ShowCursor")
+                RunService:UnbindFromRenderStep(bindName)
             end)
-            RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
+            RunService:BindToRenderStep(bindName, Enum.RenderPriority.Last.Value, function()
                 UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
 
                 Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
@@ -6607,7 +6636,7 @@ function Library:CreateWindow(WindowInfo)
                 if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
                     UserInputService.MouseIconEnabled = OldMouseIconEnabled
                     Cursor.Visible = false
-                    RunService:UnbindFromRenderStep("ShowCursor")
+                    RunService:UnbindFromRenderStep(bindName)
                 end
             end)
         elseif not Library.Toggled then
@@ -6704,13 +6733,28 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
--- Anti-detect: Use random key instead of "Library"
+-- VAPE Anti-detect: Store with random key and obfuscated reference
 local randomKey = game:GetService("HttpService"):GenerateGUID(false):sub(1, 12)
-getgenv()[randomKey] = Library
+local _G_backup = _G
 
--- Also keep Library for compatibility but mark as protected
-if not getgenv().Library then
-    getgenv().Library = Library
+-- Store in multiple locations for redundancy (VAPE technique)
+secureCall(function()
+    getgenv()[randomKey] = Library
+    _G_backup[randomKey] = Library
+end)
+
+-- Only set Library if it doesn't exist (avoid overwriting detection)
+secureCall(function()
+    if not getgenv().Library then
+        getgenv().Library = Library
+    end
+end)
+
+-- VAPE technique: Clean up detectable strings
+if Library.ScreenGui then
+    secureCall(function()
+        Library.ScreenGui.Name = game:GetService("HttpService"):GenerateGUID(false):sub(1, 8)
+    end)
 end
 
 return Library

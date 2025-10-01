@@ -63,7 +63,6 @@ local gethui = gethui or function()
     end) or CoreGui
 end
 
---[[
 if getrenv and setreadonly then
     pcall(function()
         local env = getrenv()
@@ -72,7 +71,6 @@ if getrenv and setreadonly then
         setreadonly(env, true)
     end)
 end
---]]
 
 local gc_protect = function(tbl)
     pcall(function()

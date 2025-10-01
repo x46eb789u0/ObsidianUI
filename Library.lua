@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false -- s
+local ThreadFix = setthreadidentity and true or false -- pop
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -2030,7 +2030,6 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
 
     return TooltipTable
 end
-
 function Library:OnUnload(Callback)
     table.insert(Library.UnloadSignals, Callback)
 end
@@ -2045,14 +2044,15 @@ function Library:Unload()
         Library:SafeCallback(Callback)
     end
 
+    if Library.BlurEffect then
+        Library.BlurEffect:Destroy()
+        Library.BlurEffect = nil
+    end
+
     Library.Unloaded = true
     ScreenGui:Destroy()
     getgenv().Library = nil
 end
-
-local CheckIcon = Library:GetIcon("check")
-local ArrowIcon = Library:GetIcon("chevron-up")
-local ResizeIcon = Library:GetIcon("move-diagonal-2")
 local KeyIcon = Library:GetIcon("key")
 
 local BaseAddons = {}
@@ -5537,6 +5537,8 @@ function Library:CreateWindow(WindowInfo)
                 Position = true,
             },
         })
+        addBlur(MainFrame)
+        createBlurEffect()
         New("UICorner", {
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,

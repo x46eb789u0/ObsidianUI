@@ -63,6 +63,7 @@ local gethui = gethui or function()
     end) or CoreGui
 end
 
+--[[
 if getrenv and setreadonly then
     pcall(function()
         local env = getrenv()
@@ -71,6 +72,7 @@ if getrenv and setreadonly then
         setreadonly(env, true)
     end)
 end
+--]]
 
 local gc_protect = function(tbl)
     pcall(function()
@@ -125,8 +127,6 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
-    ShowBlur = true,
-    BlurSize = 1,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -318,8 +318,6 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
-        ShowBlur = true,
-        BlurSize = 0.05,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
@@ -429,21 +427,6 @@ local Sizes = {
     Left = { 0.5, 1 },
     Right = { 0.5, 1 },
 }
-
-local function addBlur(parent)
-    local blur = Instance.new('ImageLabel')
-    blur.Name = randomString(8)
-    blur.Size = UDim2.new(1, 89, 1, 52)
-    blur.Position = UDim2.fromOffset(-48, -31)
-    blur.BackgroundTransparency = 1
-    blur.Image = 'rbxassetid://14898786664'
-    blur.ScaleType = Enum.ScaleType.Slice
-    blur.SliceCenter = Rect.new(52, 31, 261, 502)
-    blur.ZIndex = 0
-    blur.Parent = parent
-    
-    return blur
-end
 
 --// Basic Functions \\--
 local function ApplyDPIScale(Dimension, ExtraOffset)
@@ -5084,40 +5067,6 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
-function Library:SetBlur(enabled: boolean)
-    Library.ShowBlur = enabled
-    
-    local MainFrame = nil
-    for _, child in ipairs(ScreenGui:GetChildren()) do
-        if child:IsA("Frame") and child.Visible then
-            MainFrame = child
-            break
-        end
-    end
-    
-    if not MainFrame then return end
-    
-    if enabled then
-        local existingBlur = nil
-        for _, child in ipairs(MainFrame:GetChildren()) do
-            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
-                existingBlur = child
-                break
-            end
-        end
-        
-        if not existingBlur then
-            addBlur(MainFrame)
-        end
-    else
-        for _, child in ipairs(MainFrame:GetChildren()) do
-            if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
-                child:Destroy()
-            end
-        end
-    end
-end
-
 
 function Library:Notify(...)
     local Data = {}
@@ -5388,8 +5337,6 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
-    Library.ShowBlur = WindowInfo.ShowBlur
-    Library.BlurSize = WindowInfo.BlurSize
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
 
@@ -5430,10 +5377,6 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-        
-        if Library.ShowBlur then
-            addBlur(MainFrame)
-        end
         
         do
             local Lines = {
@@ -6625,15 +6568,6 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
-        
-        if Library.ShowBlur then
-            for _, child in ipairs(MainFrame:GetChildren()) do
-                if child:IsA("ImageLabel") and child.Image == 'rbxassetid://14898786664' then
-                    child.Visible = Library.Toggled
-                    break
-                end
-            end
-        end
         
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled

@@ -1,28 +1,6 @@
-local ThreadFix = setthreadidentity and true or false
-if ThreadFix then
-    local success = pcall(function() 
-        setthreadidentity(8) 
-    end)
-end
-
-local cloneref = cloneref or function(obj)
-    return obj
-end
-
-local secureCall = function(func, ...)
-    local success, result = pcall(func, ...)
-    return success and result or nil
-end
-
-local function randomString(length)
-    local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    local result = ''
-    for i = 1, length do
-        local rand = math.random(1, #chars)
-        result = result .. chars:sub(rand, rand)
-    end
-    return result
-end
+local cloneref = (cloneref or clonereference or function(instance: any)
+    return instance
+end) -- xd
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
@@ -31,71 +9,30 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
-local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local getgenv = getgenv or function()
     return shared
 end
 local setclipboard = setclipboard or nil
-
-local protectgui = protectgui or (syn and syn.protect_gui) or (function()
-    local protected = {}
-    return function(gui)
-        if gui then
-            protected[gui] = true
-
-            secureCall(function()
-                gui.Name = randomString(math.random(8, 16))
-            end)
-
-            pcall(function()
-                if cloneref then
-                    gui = cloneref(gui)
-                end
-            end)
-        end
-    end
-end)()
-
+local protectgui = protectgui or (syn and syn.protect_gui) or function() end
 local gethui = gethui or function()
-    return secureCall(function() 
-        local cg = game:GetService("CoreGui")
-        return cloneref and cloneref(cg) or cg
-    end) or CoreGui
-end
-
-if getrenv and setreadonly then
-    pcall(function()
-        local env = getrenv()
-        setreadonly(env, false)
-        env.script = nil
-        setreadonly(env, true)
-    end)
-end
-
-local gc_protect = function(tbl)
-    pcall(function()
-        setmetatable(tbl, {
-            __mode = "k",
-            __metatable = randomString(16),
-            __tostring = function() return randomString(12) end
-        })
-    end)
+    return CoreGui
 end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Mouse = cloneref(LocalPlayer:GetMouse())
 
---// Blur Variables
-local BlurAnimationThread = nil
-local _ShowBlur = true
-local _BlurSize = 13
-local _ShowMobileLockButton = true
-
 local Labels = {}
 local Buttons = {}
 local Toggles = {}
 local Options = {}
+
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
+
+local BlurAnimationThread = nil
+local _ShowBlur = true
+local _BlurSize = 13
+local _ShowMobileLockButton = true
 
 local Library = {
     LocalPlayer = LocalPlayer,
@@ -104,10 +41,6 @@ local Library = {
     IsRobloxFocused = true,
 
     ScreenGui = nil,
-    BlurEffect = nil,
-    BlurEnabled = false,
-    MobileLockButton = nil,
-    ShowCustomCursor = true,
 
     SearchText = "",
     Searching = false,
@@ -124,8 +57,8 @@ local Library = {
     Notifications = {},
 
     ToggleKeybind = Enum.KeyCode.RightControl,
-    TweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 
     Toggled = false,
     Unloaded = false,
@@ -136,6 +69,7 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
+    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -165,6 +99,11 @@ local Library = {
 
     Registry = {},
     DPIRegistry = {},
+
+    BlurEffect = nil,
+    BlurEnabled = false,
+    
+    MobileLockButton = nil,
 }
 
 local ObsidianImageManager = {
@@ -179,11 +118,14 @@ local ObsidianImageManager = {
         SaturationMap = {
             RobloxId = 4155801252,
             Path = "ObsidianUI/assets/SaturationMap.png",
+
             Id = nil
         },
+        
         Blur = {
             RobloxId = 14898786664,
             Path = "ObsidianUI/assets/blur.png",
+
             Id = nil
         }
     }
@@ -343,6 +285,7 @@ local Templates = {
     Toggle = {
         Text = "Toggle",
         Default = false,
+
         Callback = function() end,
         Changed = function() end,
 
@@ -445,6 +388,136 @@ local Sizes = {
 }
 
 --// Basic Functions \\--
+local function addBlur(parent)
+    local blur = Instance.new('ImageLabel')
+    blur.Name = 'Blur'
+    blur.Size = UDim2.new(1, 89, 1, 52)
+    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.BackgroundTransparency = 1
+    blur.Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664'
+    blur.ScaleType = Enum.ScaleType.Slice
+    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ZIndex = 0
+    blur.Parent = parent
+
+    return blur
+end
+
+local function createBlurEffect()
+    if not Library.BlurEffect then
+        Library.BlurEffect = Instance.new("BlurEffect")
+        Library.BlurEffect.Name = "ObsidianBlur"
+        Library.BlurEffect.Size = 0
+        Library.BlurEffect.Parent = Lighting
+    end
+end
+
+local function animateBlur(enabled)
+    if not _ShowBlur then
+        return
+    end
+
+    if BlurAnimationThread then
+        task.cancel(BlurAnimationThread)
+        BlurAnimationThread = nil
+    end
+
+    Library.BlurEnabled = enabled
+
+    if not Library.BlurEffect then
+        createBlurEffect()
+    end
+
+    local baseIncrement = math.max(2, _BlurSize / 12)
+    
+    BlurAnimationThread = task.spawn(function()
+        if enabled then
+            local targetSize = _BlurSize
+
+            while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
+                local currentSize = Library.BlurEffect.Size
+                local remaining = targetSize - currentSize
+                local increment = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize + increment
+                
+                if Library.BlurEffect.Size >= targetSize then
+                    Library.BlurEffect.Size = targetSize
+                    break
+                end
+                task.wait(0.03)
+            end
+        else
+            while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
+                local currentSize = Library.BlurEffect.Size
+                local remaining = currentSize
+                local decrement = math.min(baseIncrement, remaining)
+                
+                Library.BlurEffect.Size = currentSize - decrement
+                
+                if Library.BlurEffect.Size <= 0 then
+                    Library.BlurEffect.Size = 0
+                    break
+                end
+                task.wait(0.03)
+            end
+        end
+        
+        BlurAnimationThread = nil
+    end)
+end
+
+do
+    local LibraryMetatable = {
+        __index = function(t, key)
+            if key == "ShowBlur" then
+                return _ShowBlur
+            elseif key == "BlurSize" then
+                return _BlurSize
+            elseif key == "ShowMobileLockButton" then
+                return _ShowMobileLockButton
+            end
+            return rawget(t, key)
+        end,
+        __newindex = function(t, key, value)
+            if key == "ShowBlur" then
+                local oldValue = _ShowBlur
+                _ShowBlur = value
+                
+                if not value and oldValue then
+                    if BlurAnimationThread then
+                        task.cancel(BlurAnimationThread)
+                        BlurAnimationThread = nil
+                    end
+                    if rawget(t, "BlurEffect") then
+                        rawget(t, "BlurEffect").Size = 0
+                    end
+                    rawset(t, "BlurEnabled", false)
+                end
+                
+                if value and rawget(t, "Toggled") then
+                    animateBlur(true)
+                end
+            elseif key == "BlurSize" then
+                _BlurSize = value
+                
+                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
+                    rawget(t, "BlurEffect").Size = value
+                end
+            elseif key == "ShowMobileLockButton" then
+                _ShowMobileLockButton = value
+                
+                if rawget(t, "MobileLockButton") then
+                    rawget(t, "MobileLockButton").Button.Visible = value
+                end
+            else
+                rawset(t, key, value)
+            end
+        end
+    }
+    setmetatable(Library, LibraryMetatable)
+end
+
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
         return UDim.new(Dimension.Scale, Dimension.Offset * Library.DPIScale)
@@ -526,42 +599,6 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
-
-local VapeTween = {
-    tweens = {},
-    tweenstwo = {}
-}
-
-function VapeTween:Tween(obj, tweeninfo, goal, tab)
-    tab = tab or self.tweens
-    if tab[obj] then
-        tab[obj]:Cancel()
-        tab[obj] = nil
-    end
-
-    if obj.Parent and obj.Visible then
-        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
-        tab[obj].Completed:Once(function()
-            if tab then
-                tab[obj] = nil
-                tab = nil
-            end
-        end)
-        tab[obj]:Play()
-    else
-        for i, v in goal do
-            obj[i] = v
-        end
-    end
-end
-
-function VapeTween:Cancel(obj)
-    if self.tweens[obj] then
-        self.tweens[obj]:Cancel()
-        self.tweens[obj] = nil
-    end
-end
-
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -599,141 +636,6 @@ local function GetTeams()
     end)
 
     return TeamList
-end
-
---// ========================================
---// BLUR FUNCTIONS
---// ========================================
-
-local function addBlur(parent)
-    local blur = Instance.new('ImageLabel')
-    blur.Name = 'Blur'
-    blur.Size = UDim2.new(1, 89, 1, 52)
-    blur.Position = UDim2.fromOffset(-48, -31)
-    blur.BackgroundTransparency = 1
-    blur.Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664'
-    blur.ScaleType = Enum.ScaleType.Slice
-    blur.SliceCenter = Rect.new(52, 31, 261, 502)
-    blur.ZIndex = 0
-    blur.Parent = parent
-
-    return blur
-end
-
-local function createBlurEffect()
-    if not Library.BlurEffect then
-        Library.BlurEffect = Instance.new("BlurEffect")
-        Library.BlurEffect.Name = "ObsidianBlur"
-        Library.BlurEffect.Size = 0
-        Library.BlurEffect.Parent = Lighting
-    end
-end
-
-local function animateBlur(enabled)
-    if not _ShowBlur then
-        return
-    end
-
-    if BlurAnimationThread then
-        task.cancel(BlurAnimationThread)
-        BlurAnimationThread = nil
-    end
-
-    Library.BlurEnabled = enabled
-
-    if not Library.BlurEffect then
-        createBlurEffect()
-    end
-
-    local baseIncrement = math.max(2, _BlurSize / 12)
-    
-    BlurAnimationThread = task.spawn(function()
-        if enabled then
-            local targetSize = _BlurSize
-
-            while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
-                local currentSize = Library.BlurEffect.Size
-                local remaining = targetSize - currentSize
-                local increment = math.min(baseIncrement, remaining)
-                
-                Library.BlurEffect.Size = currentSize + increment
-                
-                if Library.BlurEffect.Size >= targetSize then
-                    Library.BlurEffect.Size = targetSize
-                    break
-                end
-                task.wait(0.03)
-            end
-        else
-            while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
-                local currentSize = Library.BlurEffect.Size
-                local remaining = currentSize
-                local decrement = math.min(baseIncrement, remaining)
-                
-                Library.BlurEffect.Size = currentSize - decrement
-                
-                if Library.BlurEffect.Size <= 0 then
-                    Library.BlurEffect.Size = 0
-                    break
-                end
-                task.wait(0.03)
-            end
-        end
-        
-        BlurAnimationThread = nil
-    end)
-end
-
---// Blur Metatable
-do
-    local LibraryMetatable = {
-        __index = function(t, key)
-            if key == "ShowBlur" then
-                return _ShowBlur
-            elseif key == "BlurSize" then
-                return _BlurSize
-            elseif key == "ShowMobileLockButton" then
-                return _ShowMobileLockButton
-            end
-            return rawget(t, key)
-        end,
-        __newindex = function(t, key, value)
-            if key == "ShowBlur" then
-                local oldValue = _ShowBlur
-                _ShowBlur = value
-                
-                if not value and oldValue then
-                    if BlurAnimationThread then
-                        task.cancel(BlurAnimationThread)
-                        BlurAnimationThread = nil
-                    end
-                    if rawget(t, "BlurEffect") then
-                        rawget(t, "BlurEffect").Size = 0
-                    end
-                    rawset(t, "BlurEnabled", false)
-                end
-                
-                if value and rawget(t, "Toggled") then
-                    animateBlur(true)
-                end
-            elseif key == "BlurSize" then
-                _BlurSize = value
-                
-                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
-                    rawget(t, "BlurEffect").Size = value
-                end
-            elseif key == "ShowMobileLockButton" then
-                _ShowMobileLockButton = value
-                
-                if rawget(t, "MobileLockButton") then
-                    rawget(t, "MobileLockButton").Button.Visible = value
-                end
-            else
-                rawset(t, key, value)
-            end
-        end
-    }
-    setmetatable(Library, LibraryMetatable)
 end
 
 function Library:UpdateKeybindFrame()
@@ -1261,6 +1163,7 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
         elseif ThemeProperties[k] then
             ThemeProperties[k] = nil
         elseif k ~= "Text" and (Library.Scheme[v] or typeof(v) == "function") then
+            -- me when Red in dropdowns break things (temp fix - or perm idk if deivid will do something about this)
             ThemeProperties[k] = v
             Instance[k] = Library.Scheme[v] or v()
             continue
@@ -1339,11 +1242,9 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = randomString(12),
-    DisplayOrder = math.random(800, 999),
+    Name = "Obsidian",
+    DisplayOrder = 999,
     ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -1362,10 +1263,7 @@ local ModalElement = New("TextButton", {
     Parent = ScreenGui
 })
 
---// ========================================
---// CUSTOM CURSOR
---// ========================================
-
+--// Cursor
 local Cursor
 do
     Cursor = New("Frame", {
@@ -1433,16 +1331,6 @@ end
 function Library:GetDarkerColor(Color: Color3): Color3
     local H, S, V = Color:ToHSV()
     return Color3.fromHSV(H, S, V / 2)
-end
-
-function Library:ColorDark(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
-end
-
-function Library:ColorLight(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v - num or v + num, 0, 1))
 end
 
 function Library:GetKeyString(KeyCode: Enum.KeyCode)
@@ -2031,8 +1919,8 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
             and not (CurrentMenu and Library:MouseIsOverFrame(CurrentMenu.Menu, Mouse))
         do
             TooltipLabel.Position = UDim2.fromOffset(
-                Mouse.X + 14,
-                Mouse.Y + 12
+                Mouse.X + (Library.ShowCustomCursor and 8 or 14),
+                Mouse.Y + (Library.ShowCustomCursor and 8 or 12)
             )
 
             RunService.RenderStepped:Wait()
@@ -2083,6 +1971,11 @@ function Library:Unload()
 
     for _, Callback in pairs(Library.UnloadSignals) do
         Library:SafeCallback(Callback)
+    end
+
+    if Library.BlurEffect then
+        Library.BlurEffect:Destroy()
+        Library.BlurEffect = nil
     end
 
     Library.Unloaded = true
@@ -2325,8 +2218,18 @@ do
                     KeybindsToggle:SetNormal(true)
                 end
 
-                KeybindsToggle:SetText(("[%s] %s (%s)"):format(KeyPicker.Value, KeyPicker.Text, KeyPicker.Mode))
-                KeybindsToggle:SetVisibility(true)
+                local showToggle = KeyPicker.Value ~= "None" and KeyPicker.Value ~= ""
+                if not showToggle then
+                    KeybindsToggle:SetVisibility(false)
+                else
+                    KeybindsToggle:SetVisibility(true)
+                    local modeStr = string.format(" (%s)", KeyPicker.Mode:sub(1, 1):upper())
+                    local text = KeybindsToggle.Normal and
+                        string.format("[%s] - %s%s", KeyPicker.Value, KeyPicker.Text, modeStr) or
+                        string.format("[%s] %s%s", KeyPicker.Value, KeyPicker.Text, modeStr)
+                    KeybindsToggle:SetText(text)
+                end
+
                 KeybindsToggle:Display(State)
             end
 
@@ -5256,6 +5159,18 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
+function Library:SetShowBlur(Show: boolean)
+    Library.ShowBlur = Show
+end
+
+function Library:SetBlurSize(Size: number)
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
+    Library.BlurSize = Size
+end
+
+function Library:SetShowMobileLockButton(Show: boolean)
+    Library.ShowMobileLockButton = Show
+end
 
 function Library:Notify(...)
     local Data = {}
@@ -5556,7 +5471,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = randomString(10),
+            Name = "Main",
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5566,11 +5481,12 @@ function Library:CreateWindow(WindowInfo)
                 Position = true,
             },
         })
+        addBlur(MainFrame)
+        createBlurEffect()
         New("UICorner", {
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-        
         do
             local Lines = {
                 {
@@ -5614,7 +5530,6 @@ function Library:CreateWindow(WindowInfo)
         local TopBar = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 48),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         Library:MakeDraggable(MainFrame, TopBar, false, true)
@@ -5777,7 +5692,6 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         do
@@ -5841,7 +5755,6 @@ function Library:CreateWindow(WindowInfo)
             Position = UDim2.fromOffset(0, 49),
             ScrollBarThickness = 0,
             Size = UDim2.new(0.3, 0, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -5855,10 +5768,9 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = randomString(10),
+            Name = "Container",
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -6778,7 +6690,7 @@ function Library:CreateWindow(WindowInfo)
                 Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
                 Cursor.Visible = Library.ShowCustomCursor
 
-                if not (Library.Toggled and Library.ScreenGui and Library.ScreenGui.Parent) then
+                if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
                     UserInputService.MouseIconEnabled = OldMouseIconEnabled
                     Cursor.Visible = false
                     RunService:UnbindFromRenderStep("ShowCursor")
@@ -6880,46 +6792,5 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-gc_protect(Library)
-gc_protect(Library.Scheme)
-
-local randomKey = randomString(math.random(10, 16))
-local _G_backup = _G
-
-secureCall(function()
-    getgenv()[randomKey] = Library
-    _G_backup[randomKey] = Library
-end)
-
-secureCall(function()
-    if not getgenv().Library then
-        getgenv().Library = Library
-    end
-end)
-
-if Library.ScreenGui then
-    secureCall(function()
-        Library.ScreenGui.Name = randomString(math.random(10, 18))
-        task.spawn(function()
-            while Library.ScreenGui and Library.ScreenGui.Parent do
-                task.wait(math.random(5, 15))
-                if Library.ScreenGui then
-                    Library.ScreenGui.Name = randomString(math.random(10, 18))
-                end
-            end
-        end)
-    end)
-end
-pcall(function()
-    if getfenv and setfenv then
-        local env = getfenv(0)
-        setfenv(0, setmetatable({}, {
-            __index = function(_, k)
-                return env[k]
-            end,
-            __metatable = randomString(12)
-        }))
-    end
-end)
-
+getgenv().Library = Library
 return Library

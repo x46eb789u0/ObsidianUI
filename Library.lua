@@ -430,7 +430,6 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// VAPE-Style Blur Function (EXACT copy from VAPE) \\--
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
     blur.Name = randomString(8)
@@ -440,6 +439,7 @@ local function addBlur(parent)
     blur.Image = 'rbxassetid://14898786664'
     blur.ScaleType = Enum.ScaleType.Slice
     blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ZIndex = 0
     blur.Parent = parent
     
     return blur
@@ -528,7 +528,6 @@ local function StopTween(Tween: TweenBase)
     Tween:Cancel()
 end
 
---// VAPE-Style Tween Manager \\--
 local VapeTween = {
     tweens = {},
     tweenstwo = {}
@@ -1264,7 +1263,6 @@ function Library:GetDarkerColor(Color: Color3): Color3
     return Color3.fromHSV(H, S, V / 2)
 end
 
---// VAPE-Style Color Functions \\--
 function Library:ColorDark(col, num)
     local h, s, v = col:ToHSV()
     return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
@@ -5086,7 +5084,6 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
---// VAPE-Style Blur Control Functions \\--
 function Library:SetBlur(enabled: boolean)
     Library.ShowBlur = enabled
     

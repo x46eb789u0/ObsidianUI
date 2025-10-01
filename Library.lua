@@ -1,4 +1,3 @@
--- fuck you
 local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
@@ -332,15 +331,18 @@ local Templates = {
         SearchbarSize = UDim2.fromScale(1, 1),
         CornerRadius = 4,
         NotifySide = "Right",
+        ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
         MobileButtonsSide = "Left",
-        UnlockMouseWhileOpen = true
+        UnlockMouseWhileOpen = true,
+        ShowBlur = true,
+        BlurSize = 13,
+        ShowMobileLockButton = true
     },
     Toggle = {
         Text = "Toggle",
         Default = false,
-
         Callback = function() end,
         Changed = function() end,
 
@@ -732,18 +734,6 @@ do
         end
     }
     setmetatable(Library, LibraryMetatable)
-end
-
-function Library:SetShowBlur(Show: boolean)
-    Library.ShowBlur = Show
-end
-
-function Library:SetBlurSize(Size: number)
-    Library.BlurSize = Size
-end
-
-function Library:SetShowMobileLockButton(Show: boolean)
-    Library.ShowMobileLockButton = Show
 end
 
 function Library:UpdateKeybindFrame()
@@ -1412,28 +1402,6 @@ do
     })
 end
 
---// Custom Cursor Show/Hide Logic
-function Library:SetupCustomCursor()
-    if Library.Toggled and not Library.IsMobile then
-        local OldMouseIconEnabled = UserInputService.MouseIconEnabled
-        pcall(function()
-            RunService:UnbindFromRenderStep("ShowCursor")
-        end)
-        RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
-            UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
-
-            Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
-            Cursor.Visible = Library.ShowCustomCursor
-
-            if not (Library.Toggled and Library.ScreenGui and Library.ScreenGui.Parent) then
-                UserInputService.MouseIconEnabled = OldMouseIconEnabled
-                Cursor.Visible = false
-                RunService:UnbindFromRenderStep("ShowCursor")
-            end
-        end)
-    end
-end
-
 --// Notification
 local NotificationArea
 local NotificationList
@@ -1723,24 +1691,6 @@ function Library:AddDraggableButton(Text: string, Func)
     Table:SetText(Text)
 
     return Table
-end
-
---// ========================================
---// LOCK BUTTON (Mobile)
---// ========================================
-
-function Library:CreateMobileLockButton()
-    if not Library.IsMobile then
-        return
-    end
-
-    Library.MobileLockButton = Library:AddDraggableButton("Lock", function(self)
-        Library.CantDragForced = not Library.CantDragForced
-        self:SetText(Library.CantDragForced and "Unlock" or "Lock")
-    end)
-
-    Library.MobileLockButton.Button.Visible = Library.ShowMobileLockButton
-    Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
 end
 
 function Library:AddDraggableMenu(Name: string)
@@ -5576,8 +5526,12 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
+    Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
+    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
@@ -5589,8 +5543,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("KeybindFrame")
-        Library.KeybindFrame.Name = "KeybindFrame"
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("Keybinds")
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -6808,18 +6761,30 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
-
-        -- Blur animation
         animateBlur(Library.Toggled)
-
-        -- Custom cursor
-        Library:SetupCustomCursor()
-
+        
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
         end
 
-        if not Library.Toggled then
+        if Library.Toggled and not Library.IsMobile then
+            local OldMouseIconEnabled = UserInputService.MouseIconEnabled
+            pcall(function()
+                RunService:UnbindFromRenderStep("ShowCursor")
+            end)
+            RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
+                UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
+
+                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
+                Cursor.Visible = Library.ShowCustomCursor
+
+                if not (Library.Toggled and Library.ScreenGui and Library.ScreenGui.Parent) then
+                    UserInputService.MouseIconEnabled = OldMouseIconEnabled
+                    Cursor.Visible = false
+                    RunService:UnbindFromRenderStep("ShowCursor")
+                end
+            end)
+        elseif not Library.Toggled then
             TooltipLabel.Visible = false
             for _, Option in pairs(Library.Options) do
                 if Option.Type == "ColorPicker" then
@@ -6841,19 +6806,21 @@ function Library:CreateWindow(WindowInfo)
             Library:Toggle()
         end)
 
-        local LockButton = Library:AddDraggableButton("Lock", function(self)
+        Library.MobileLockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
         end)
+
+        Library.MobileLockButton.Button.Visible = Library.ShowMobileLockButton
 
         if WindowInfo.MobileButtonsSide == "Right" then
             ToggleButton.Button.Position = UDim2.new(1, -6, 0, 6)
             ToggleButton.Button.AnchorPoint = Vector2.new(1, 0)
 
-            LockButton.Button.Position = UDim2.new(1, -6, 0, 46)
-            LockButton.Button.AnchorPoint = Vector2.new(1, 0)
+            Library.MobileLockButton.Button.Position = UDim2.new(1, -6, 0, 46)
+            Library.MobileLockButton.Button.AnchorPoint = Vector2.new(1, 0)
         else
-            LockButton.Button.Position = UDim2.fromOffset(6, 46)
+            Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
 

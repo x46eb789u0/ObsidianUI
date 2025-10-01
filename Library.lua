@@ -1,8 +1,9 @@
-pcall(function() -- pcall
-    if setthreadidentity then
-        setthreadidentity(8)
-    end
-end)
+local ThreadFix = setthreadidentity and true or false
+if ThreadFix then
+    local success = pcall(function() 
+        setthreadidentity(8) 
+    end)
+end
 
 local cloneref = cloneref or function(obj)
     return obj

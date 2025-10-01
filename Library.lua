@@ -1,4 +1,3 @@
--- te
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
@@ -29,6 +28,10 @@ local Toggles = {}
 local Options = {}
 
 local Lighting: Lighting = cloneref(game:GetService("Lighting"))
+
+local BlurAnimationThread = nil
+local _ShowBlur = true
+local _BlurSize = 13
 
 local Library = {
     LocalPlayer = LocalPlayer,
@@ -98,9 +101,52 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
-    ShowBlur = true,
-    BlurSize = 6,
 }
+
+-- Metatable para interceptar cambios en ShowBlur y BlurSize
+local LibraryMetatable = {
+    __index = function(t, key)
+        if key == "ShowBlur" then
+            return _ShowBlur
+        elseif key == "BlurSize" then
+            return _BlurSize
+        end
+        return rawget(t, key)
+    end,
+    __newindex = function(t, key, value)
+        if key == "ShowBlur" then
+            local oldValue = _ShowBlur
+            _ShowBlur = value
+            
+            -- Si se desactiva ShowBlur, limpiar el blur
+            if not value and oldValue ~= value then
+                if BlurAnimationThread then
+                    task.cancel(BlurAnimationThread)
+                    BlurAnimationThread = nil
+                end
+                if rawget(t, "BlurEffect") then
+                    rawget(t, "BlurEffect").Size = 0
+                end
+                rawset(t, "BlurEnabled", false)
+            end
+            
+            -- Si se activa ShowBlur y la UI está visible, activar el blur
+            if value and not oldValue and rawget(t, "Toggled") then
+                animateBlur(true)
+            end
+        elseif key == "BlurSize" then
+            _BlurSize = value
+            
+            -- Si el blur está activo, actualizar su tamaño inmediatamente
+            if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
+                rawget(t, "BlurEffect").Size = value
+            end
+        else
+            rawset(t, key, value)
+        end
+    end
+}
+setmetatable(Library, LibraryMetatable)
 
 local ObsidianImageManager = {
     Assets = {
@@ -275,7 +321,7 @@ local Templates = {
         MobileButtonsSide = "Left",
         UnlockMouseWhileOpen = true,
         ShowBlur = true,
-        BlurSize = 24
+        BlurSize = 13
     },
     Toggle = {
         Text = "Toggle",
@@ -398,8 +444,6 @@ local function addBlur(parent)
     return blur
 end
 
-local BlurAnimationThread = nil
-
 local function createBlurEffect()
     if not Library.BlurEffect then
         Library.BlurEffect = Instance.new("BlurEffect")
@@ -410,7 +454,7 @@ local function createBlurEffect()
 end
 
 local function animateBlur(enabled)
-    if not Library.ShowBlur then
+    if not _ShowBlur then
         return
     end
 
@@ -427,12 +471,12 @@ local function animateBlur(enabled)
     end
 
     -- Calcular incremento dinámico basado en el BlurSize para animaciones más rápidas
-    local baseIncrement = math.max(2, Library.BlurSize / 12)
+    local baseIncrement = math.max(2, _BlurSize / 12)
     
     BlurAnimationThread = task.spawn(function()
         if enabled then
             -- Activar blur con animación
-            local targetSize = Library.BlurSize
+            local targetSize = _BlurSize
 
             while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
                 local currentSize = Library.BlurEffect.Size
@@ -5101,34 +5145,12 @@ function Library:SetNotifySide(Side: string)
 end
 
 function Library:SetShowBlur(Show: boolean)
-    Library.ShowBlur = Show
-    
-    -- Si se desactiva ShowBlur mientras el blur está activo, desactivarlo inmediatamente
-    if not Show then
-        if BlurAnimationThread then
-            task.cancel(BlurAnimationThread)
-            BlurAnimationThread = nil
-        end
-        if Library.BlurEffect then
-            Library.BlurEffect.Size = 0
-        end
-        Library.BlurEnabled = false
-    end
-    
-    -- Si se activa ShowBlur y la UI está visible, activar el blur
-    if Show and Library.Toggled then
-        animateBlur(true)
-    end
+    Library.ShowBlur = Show  -- El metatable maneja toda la lógica
 end
 
 function Library:SetBlurSize(Size: number)
     assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
-    Library.BlurSize = Size
-    
-    -- Si el blur está activo, actualizar su tamaño inmediatamente
-    if Library.BlurEffect and Library.BlurEnabled and Library.ShowBlur then
-        Library.BlurEffect.Size = Size
-    end
+    Library.BlurSize = Size  -- El metatable maneja toda la lógica
 end
 
 function Library:Notify(...)

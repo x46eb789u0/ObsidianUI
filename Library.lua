@@ -514,12 +514,12 @@ end
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
     blur.Name = 'Blur'
-    blur.Size = UDim2.new(1, 89, 1, 52)
-    blur.Position = UDim2.fromOffset(-48, -31)
+    blur.Size = UDim2.fromScale(1, 1)
+    blur.Position = UDim2.fromScale(0, 0)
     blur.BackgroundTransparency = 1
     blur.Image = 'rbxassetid://14898786664'
-    blur.ScaleType = Enum.ScaleType.Slice
-    blur.SliceCenter = Rect.new(52, 31, 261, 502)
+    blur.ScaleType = Enum.ScaleType.Tile
+    blur.TileSize = UDim2.fromOffset(1920, 1080)
     blur.Visible = false
     blur.Parent = parent
     blur.ZIndex = 0
@@ -5376,6 +5376,8 @@ function Library:CreateWindow(WindowInfo)
             Size = false,
         })
 
+        MainFrameBlur = addBlur(ScreenGui)
+
         MainFrame = New("Frame", {
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
@@ -5394,8 +5396,6 @@ function Library:CreateWindow(WindowInfo)
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-
-        MainFrameBlur = addBlur(MainFrame)
         
         do
             local Lines = {
@@ -6587,7 +6587,7 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
-
+        
         if MainFrameBlur then
             MainFrameBlur.Visible = Library.Toggled
         end

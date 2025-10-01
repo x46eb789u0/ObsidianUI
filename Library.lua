@@ -1,4 +1,13 @@
--- tireeeeeeeeeeeeeeed
+local ThreadFix = (setthreadidentity or setidentity or set_thread_identity) and true or false
+if ThreadFix then
+    local success = pcall(function() 
+        local setthread = setthreadidentity or setidentity or set_thread_identity
+        if setthread then
+            setthread(8)
+        end
+    end)
+end
+
 local cloneref = cloneref or function(obj)
     return obj
 end
@@ -57,6 +66,9 @@ local gethui = gethui or function()
     end) or CoreGui
 end
 
+-- Safely check for getrenv and setreadonly
+-- COMMENTED OUT to avoid errors
+--[[
 if getrenv and setreadonly then
     pcall(function()
         local env = getrenv()
@@ -65,6 +77,7 @@ if getrenv and setreadonly then
         setreadonly(env, true)
     end)
 end
+--]]
 
 local gc_protect = function(tbl)
     pcall(function()

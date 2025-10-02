@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- a ver
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -1341,7 +1341,7 @@ end
 
 local ScreenGui = New("ScreenGui", {
     Name = randomString(12),
-    DisplayOrder = math.random(800, 999),
+    DisplayOrder = 9999,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Global,

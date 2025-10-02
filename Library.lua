@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false -- yyy
+local ThreadFix = setthreadidentity and true or false -- jdus9jdd
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -169,8 +169,8 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
-    
-    FullScreenBlurCover = nil,
+    BlurOverlay = nil,
+    BlurOverlayGui = nil,
     
     MobileLockButton = nil,
 }
@@ -492,25 +492,9 @@ local function animateBlur(enabled)
         createBlurEffect()
     end
 
-    if Library.FullScreenBlurCover then
-        if enabled then
-            Library.FullScreenBlurCover.Visible = true
-            TweenService:Create(
-                Library.FullScreenBlurCover,
-                TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {ImageTransparency = 0}
-            ):Play()
-        else
-            local closeTween = TweenService:Create(
-                Library.FullScreenBlurCover,
-                TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {ImageTransparency = 1}
-            )
-            closeTween.Completed:Connect(function()
-                Library.FullScreenBlurCover.Visible = false
-            end)
-            closeTween:Play()
-        end
+    -- Control blur overlay visibility
+    if Library.BlurOverlay then
+        Library.BlurOverlay.Visible = enabled
     end
 
     local baseIncrement = math.max(2, _BlurSize / 12)
@@ -518,6 +502,24 @@ local function animateBlur(enabled)
     BlurAnimationThread = task.spawn(function()
         if enabled then
             local targetSize = _BlurSize
+            
+            -- Animate blur overlay transparency
+            if Library.BlurOverlay then
+                local startTransparency = Library.BlurOverlay.BackgroundTransparency
+                local targetTransparency = 0.3
+                local steps = 10
+                
+                for i = 1, steps do
+                    if not Library.BlurEnabled then break end
+                    local alpha = i / steps
+                    Library.BlurOverlay.BackgroundTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
+                    task.wait(0.03)
+                end
+                
+                if Library.BlurOverlay and Library.BlurEnabled then
+                    Library.BlurOverlay.BackgroundTransparency = targetTransparency
+                end
+            end
 
             while Library.BlurEffect and Library.BlurEffect.Size < targetSize and Library.BlurEnabled do
                 local currentSize = Library.BlurEffect.Size
@@ -533,6 +535,25 @@ local function animateBlur(enabled)
                 task.wait(0.03)
             end
         else
+            -- Animate blur overlay transparency out
+            if Library.BlurOverlay then
+                local startTransparency = Library.BlurOverlay.BackgroundTransparency
+                local targetTransparency = 1
+                local steps = 10
+                
+                for i = 1, steps do
+                    if Library.BlurEnabled then break end
+                    local alpha = i / steps
+                    Library.BlurOverlay.BackgroundTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
+                    task.wait(0.03)
+                end
+                
+                if Library.BlurOverlay and not Library.BlurEnabled then
+                    Library.BlurOverlay.BackgroundTransparency = targetTransparency
+                    Library.BlurOverlay.Visible = false
+                end
+            end
+            
             while Library.BlurEffect and Library.BlurEffect.Size > 0 and not Library.BlurEnabled do
                 local currentSize = Library.BlurEffect.Size
                 local remaining = currentSize
@@ -576,6 +597,10 @@ do
                     end
                     if rawget(t, "BlurEffect") then
                         rawget(t, "BlurEffect").Size = 0
+                    end
+                    if rawget(t, "BlurOverlay") then
+                        rawget(t, "BlurOverlay").Visible = false
+                        rawget(t, "BlurOverlay").BackgroundTransparency = 1
                     end
                     rawset(t, "BlurEnabled", false)
                 end
@@ -1362,9 +1387,35 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
     SafeParentUI(UI, gethui)
 end
 
+-- Create blur overlay ScreenGui (DisplayOrder lower than main UI)
+local BlurOverlayGui = New("ScreenGui", {
+    Name = randomString(12),
+    DisplayOrder = 500, -- Above game UIs but below Obsidian UI
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
+})
+ParentUI(BlurOverlayGui)
+Library.BlurOverlayGui = BlurOverlayGui
+
+-- Create blur overlay frame
+local BlurOverlay = New("Frame", {
+    Name = "BlurOverlay",
+    BackgroundColor3 = Color3.new(0, 0, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(1, 1),
+    Visible = false,
+    ZIndex = 1,
+    Parent = BlurOverlayGui,
+})
+Library.BlurOverlay = BlurOverlay
+
+-- Main Obsidian ScreenGui (DisplayOrder higher than blur overlay)
 local ScreenGui = New("ScreenGui", {
     Name = randomString(12),
-    DisplayOrder = 9999,
+    DisplayOrder = math.random(800, 999),
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Global,
@@ -1384,20 +1435,6 @@ local ModalElement = New("TextButton", {
     Text = "",
     ZIndex = -999,
     Parent = ScreenGui
-})
-
-Library.FullScreenBlurCover = New("ImageLabel", {
-    Name = "BlurCover",
-    Size = UDim2.fromScale(1, 1),
-    Position = UDim2.fromScale(0, 0),
-    BackgroundTransparency = 1,
-    Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664',
-    ScaleType = Enum.ScaleType.Slice,
-    SliceCenter = Rect.new(52, 31, 261, 502),
-    ImageTransparency = 1,
-    ZIndex = -100,
-    Visible = false,
-    Parent = ScreenGui,
 })
 
 local NotificationArea
@@ -2075,6 +2112,12 @@ function Library:Unload()
     if Library.BlurEffect then
         Library.BlurEffect:Destroy()
         Library.BlurEffect = nil
+    end
+    
+    if Library.BlurOverlayGui then
+        Library.BlurOverlayGui:Destroy()
+        Library.BlurOverlayGui = nil
+        Library.BlurOverlay = nil
     end
 
     Library.Unloaded = true

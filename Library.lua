@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false -- a ver
+local ThreadFix = setthreadidentity and true or false -- yyy
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -169,6 +169,8 @@ local Library = {
 
     BlurEffect = nil,
     BlurEnabled = false,
+    
+    FullScreenBlurCover = nil,
     
     MobileLockButton = nil,
 }
@@ -488,6 +490,27 @@ local function animateBlur(enabled)
 
     if not Library.BlurEffect then
         createBlurEffect()
+    end
+
+    if Library.FullScreenBlurCover then
+        if enabled then
+            Library.FullScreenBlurCover.Visible = true
+            TweenService:Create(
+                Library.FullScreenBlurCover,
+                TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {ImageTransparency = 0}
+            ):Play()
+        else
+            local closeTween = TweenService:Create(
+                Library.FullScreenBlurCover,
+                TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {ImageTransparency = 1}
+            )
+            closeTween.Completed:Connect(function()
+                Library.FullScreenBlurCover.Visible = false
+            end)
+            closeTween:Play()
+        end
     end
 
     local baseIncrement = math.max(2, _BlurSize / 12)
@@ -1361,6 +1384,20 @@ local ModalElement = New("TextButton", {
     Text = "",
     ZIndex = -999,
     Parent = ScreenGui
+})
+
+Library.FullScreenBlurCover = New("ImageLabel", {
+    Name = "BlurCover",
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundTransparency = 1,
+    Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664',
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(52, 31, 261, 502),
+    ImageTransparency = 1,
+    ZIndex = -100,
+    Visible = false,
+    Parent = ScreenGui,
 })
 
 local NotificationArea

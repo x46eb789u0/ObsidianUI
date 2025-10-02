@@ -1,13 +1,13 @@
-local ThreadFix = setthreadidentity and true or false -- hhhh
+local ThreadFix = setthreadidentity and true or false -- try
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
     end)
 end
 
-local cloneref = cloneref or function(obj)
-    return obj
-end
+local cloneref = (cloneref or clonereference or function(instance: any)
+    return instance
+end)
 
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
@@ -31,8 +31,6 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
-
-local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local getgenv = getgenv or function()
     return shared
@@ -92,6 +90,8 @@ local Buttons = {}
 local Toggles = {}
 local Options = {}
 
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
+
 local BlurAnimationThread = nil
 local _ShowBlur = true
 local _BlurSize = 13
@@ -120,8 +120,8 @@ local Library = {
     Notifications = {},
 
     ToggleKeybind = Enum.KeyCode.RightControl,
-    TweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    NotifyTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 
     Toggled = false,
     Unloaded = false,
@@ -181,6 +181,13 @@ local ObsidianImageManager = {
         SaturationMap = {
             RobloxId = 4155801252,
             Path = "ObsidianUI/assets/SaturationMap.png",
+
+            Id = nil
+        },
+        
+        Blur = {
+            RobloxId = 14898786664,
+            Path = "ObsidianUI/assets/blur.png",
 
             Id = nil
         }
@@ -443,7 +450,7 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// Blur Functions \\--
+--// Basic Functions \\--
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
     blur.Name = 'Blur'
@@ -551,13 +558,8 @@ do
                     rawset(t, "BlurEnabled", false)
                 end
                 
-                -- Solo animar si la UI está abierta
-                if rawget(t, "Toggled") then
-                    if value then
-                        animateBlur(true)
-                    else
-                        animateBlur(false)
-                    end
+                if value and rawget(t, "Toggled") then
+                    animateBlur(true)
                 end
             elseif key == "BlurSize" then
                 _BlurSize = value
@@ -579,7 +581,6 @@ do
     setmetatable(Library, LibraryMetatable)
 end
 
---// Basic Functions \\--
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
         return UDim.new(Dimension.Scale, Dimension.Offset * Library.DPIScale)
@@ -661,42 +662,6 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
-
-local VapeTween = {
-    tweens = {},
-    tweenstwo = {}
-}
-
-function VapeTween:Tween(obj, tweeninfo, goal, tab)
-    tab = tab or self.tweens
-    if tab[obj] then
-        tab[obj]:Cancel()
-        tab[obj] = nil
-    end
-
-    if obj.Parent and obj.Visible then
-        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
-        tab[obj].Completed:Once(function()
-            if tab then
-                tab[obj] = nil
-                tab = nil
-            end
-        end)
-        tab[obj]:Play()
-    else
-        for i, v in goal do
-            obj[i] = v
-        end
-    end
-end
-
-function VapeTween:Cancel(obj)
-    if self.tweens[obj] then
-        self.tweens[obj]:Cancel()
-        self.tweens[obj] = nil
-    end
-end
-
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -1261,6 +1226,7 @@ local function FillInstance(Table: { [string]: any }, Instance: GuiObject)
         elseif ThemeProperties[k] then
             ThemeProperties[k] = nil
         elseif k ~= "Text" and (Library.Scheme[v] or typeof(v) == "function") then
+            -- me when Red in dropdowns break things (temp fix - or perm idk if deivid will do something about this)
             ThemeProperties[k] = v
             Instance[k] = Library.Scheme[v] or v()
             continue
@@ -1339,11 +1305,9 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = randomString(12),
-    DisplayOrder = math.random(800, 999),
+    Name = "Obsidian",
+    DisplayOrder = 999,
     ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -1352,11 +1316,21 @@ ScreenGui.DescendantRemoving:Connect(function(Instance)
     Library.DPIRegistry[Instance] = nil
 end)
 
+local ModalElement = New("TextButton", {
+    BackgroundTransparency = 1,
+    Modal = false,
+    Size = UDim2.fromScale(0, 0),
+    AnchorPoint = Vector2.zero,
+    Text = "",
+    ZIndex = -999,
+    Parent = ScreenGui
+})
+
 --// Cursor
 local Cursor
 do
     Cursor = New("Frame", {
-        AnchorPoint = Vector2.new(0, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = "White",
         Size = UDim2.fromOffset(9, 1),
         Visible = false,
@@ -1389,18 +1363,6 @@ do
     })
 end
 
-local ModalElement = New("TextButton", {
-    BackgroundTransparency = 1,
-    Modal = false,
-    Size = UDim2.fromScale(0, 0),
-    AnchorPoint = Vector2.zero,
-    Text = "",
-    ZIndex = -999,
-    Parent = ScreenGui
-})
-
---// Custom Cursor REMOVED for anti-detect (not needed)
-
 --// Notification
 local NotificationArea
 local NotificationList
@@ -1432,16 +1394,6 @@ end
 function Library:GetDarkerColor(Color: Color3): Color3
     local H, S, V = Color:ToHSV()
     return Color3.fromHSV(H, S, V / 2)
-end
-
-function Library:ColorDark(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
-end
-
-function Library:ColorLight(col, num)
-    local h, s, v = col:ToHSV()
-    return Color3.fromHSV(h, s, math.clamp(select(3, Library.Scheme.MainColor:ToHSV()) > 0.5 and v - num or v + num, 0, 1))
 end
 
 function Library:GetKeyString(KeyCode: Enum.KeyCode)
@@ -2082,6 +2034,11 @@ function Library:Unload()
 
     for _, Callback in pairs(Library.UnloadSignals) do
         Library:SafeCallback(Callback)
+    end
+
+    if Library.BlurEffect then
+        Library.BlurEffect:Destroy()
+        Library.BlurEffect = nil
     end
 
     Library.Unloaded = true
@@ -5550,6 +5507,10 @@ function Library:CreateWindow(WindowInfo)
     Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
+    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
+
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
     local SearchBox
@@ -5560,7 +5521,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     do
-        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu(randomString(12))
+        Library.KeybindFrame, Library.KeybindContainer = Library:AddDraggableMenu("Keybinds")
         Library.KeybindFrame.AnchorPoint = Vector2.new(0, 0.5)
         Library.KeybindFrame.Position = UDim2.new(0, 6, 0.5, 0)
         Library.KeybindFrame.Visible = false
@@ -5573,7 +5534,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = randomString(10),
+            Name = "Main",
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5583,11 +5544,12 @@ function Library:CreateWindow(WindowInfo)
                 Position = true,
             },
         })
+        addBlur(MainFrame)
+        createBlurEffect()
         New("UICorner", {
             CornerRadius = UDim.new(0, WindowInfo.CornerRadius - 1),
             Parent = MainFrame,
         })
-        
         do
             local Lines = {
                 {
@@ -5631,7 +5593,6 @@ function Library:CreateWindow(WindowInfo)
         local TopBar = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 48),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         Library:MakeDraggable(MainFrame, TopBar, false, true)
@@ -5794,7 +5755,6 @@ function Library:CreateWindow(WindowInfo)
             end,
             Position = UDim2.fromScale(0, 1),
             Size = UDim2.new(1, 0, 0, 20),
-            ZIndex = 2,
             Parent = MainFrame,
         })
         do
@@ -5858,7 +5818,6 @@ function Library:CreateWindow(WindowInfo)
             Position = UDim2.fromOffset(0, 49),
             ScrollBarThickness = 0,
             Size = UDim2.new(0.3, 0, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -5872,10 +5831,9 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = randomString(10),
+            Name = "Container",
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
-            ZIndex = 2,
             Parent = MainFrame,
         })
 
@@ -6841,11 +6799,6 @@ function Library:CreateWindow(WindowInfo)
         end
     end
 
-    -- Configurar las propiedades después de crear el UI
-    Library.ShowBlur = WindowInfo.ShowBlur
-    Library.BlurSize = WindowInfo.BlurSize
-    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
-
     --// Execution \\--
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         Library:UpdateSearch(SearchBox.Text)
@@ -6902,46 +6855,5 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-gc_protect(Library)
-gc_protect(Library.Scheme)
-
-local randomKey = randomString(math.random(10, 16))
-local _G_backup = _G
-
-secureCall(function()
-    getgenv()[randomKey] = Library
-    _G_backup[randomKey] = Library
-end)
-
-secureCall(function()
-    if not getgenv().Library then
-        getgenv().Library = Library
-    end
-end)
-
-if Library.ScreenGui then
-    secureCall(function()
-        Library.ScreenGui.Name = randomString(math.random(10, 18))
-        task.spawn(function()
-            while Library.ScreenGui and Library.ScreenGui.Parent do
-                task.wait(math.random(5, 15))
-                if Library.ScreenGui then
-                    Library.ScreenGui.Name = randomString(math.random(10, 18))
-                end
-            end
-        end)
-    end)
-end
-pcall(function()
-    if getfenv and setfenv then
-        local env = getfenv(0)
-        setfenv(0, setmetatable({}, {
-            __index = function(_, k)
-                return env[k]
-            end,
-            __metatable = randomString(12)
-        }))
-    end
-end)
-
+getgenv().Library = Library
 return Library

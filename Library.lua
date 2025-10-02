@@ -1,14 +1,13 @@
--- omg bro
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- rrr
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
     end)
 end
 
-local cloneref = cloneref or function(obj)
-    return obj
-end
+local cloneref = (cloneref or clonereference or function(instance: any)
+    return instance
+end)
 
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
@@ -85,34 +84,6 @@ end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Mouse = cloneref(LocalPlayer:GetMouse())
-
-local function SafeParentUI(Instance, Parent)
-    local success, _error = pcall(function()
-        if not Parent then
-            Parent = CoreGui
-        elseif typeof(Parent) == "function" then
-            Parent = Parent()
-        end
-
-        if Instance and Parent then
-            Instance.Parent = Parent
-        end
-    end)
-    
-    if not success then
-        Instance.Parent = CoreGui
-    end
-end
-
-local function ParentUI(UI, SkipHiddenUI)
-    if SkipHiddenUI then
-        SafeParentUI(UI, CoreGui)
-        return
-    end
-
-    pcall(protectgui, UI)
-    SafeParentUI(UI, gethui)
-end
 
 local Labels = {}
 local Buttons = {}
@@ -482,7 +453,7 @@ local Sizes = {
 --// Basic Functions \\--
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
-    blur.Name = randomString(8)
+    blur.Name = 'Blur'
     blur.Size = UDim2.new(1, 89, 1, 52)
     blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
@@ -498,7 +469,7 @@ end
 local function createBlurEffect()
     if not Library.BlurEffect then
         Library.BlurEffect = Instance.new("BlurEffect")
-        Library.BlurEffect.Name = randomString(12)
+        Library.BlurEffect.Name = "ObsidianBlur"
         Library.BlurEffect.Size = 0
         Library.BlurEffect.Parent = Lighting
     end
@@ -1334,11 +1305,9 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = randomString(12),
-    DisplayOrder = math.random(800, 999),
+    Name = "Obsidian",
+    DisplayOrder = 999,
     ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -5258,7 +5227,7 @@ function Library:SetShowBlur(Show: boolean)
 end
 
 function Library:SetBlurSize(Size: number)
-    assert(typeof(Size) == "number" and Size >= 0, "BlurSize must be a number greater than or equal to 0")
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
     Library.BlurSize = Size
 end
 
@@ -5565,7 +5534,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = randomString(10),
+            Name = "Main",
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5862,7 +5831,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = randomString(10),
+            Name = "Container",
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
             Parent = MainFrame,
@@ -6916,7 +6885,6 @@ if Library.ScreenGui then
         end)
     end)
 end
-
 pcall(function()
     if getfenv and setfenv then
         local env = getfenv(0)

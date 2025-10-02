@@ -5823,6 +5823,134 @@ function Library:CreateWindow(WindowInfo)
             Parent = Tabs,
         })
 
+        --// Player Info Frame \\--
+        local PlayerInfoFrame = New("Frame", {
+            BackgroundTransparency = 0,
+            BackgroundColor3 = "BackgroundColor",
+            Size = UDim2.new(0.3, 0, 0, 40),
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, -21),
+            ZIndex = 2,
+            Parent = MainFrame,
+        })
+        New("UICorner", {
+            CornerRadius = UDim.new(0, Library.CornerRadius - 1),
+            Parent = PlayerInfoFrame,
+        })
+
+        local BlockerButton = New("TextButton", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = "",
+            ZIndex = 2,
+            Parent = PlayerInfoFrame,
+        })
+
+        local avatarUrl = "rbxassetid://0"
+        pcall(function()
+            avatarUrl = game.Players:GetUserThumbnailAsync(
+                game.Players.LocalPlayer.UserId,
+                Enum.ThumbnailType.AvatarBust,
+                Enum.ThumbnailSize.Size48x48
+            )
+        end)
+
+        local AvatarFrame = New("Frame", {
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(32, 32),
+            Position = UDim2.fromOffset(12, 4),
+            ZIndex = 3,
+            Parent = PlayerInfoFrame,
+        })
+
+        local AvatarImage = New("ImageLabel", {
+            BackgroundTransparency = 0,
+            BackgroundColor3 = Color3.fromRGB(181, 181, 181),
+            Size = UDim2.fromOffset(32, 32),
+            Position = UDim2.fromOffset(0, 0),
+            Image = "",
+            ImageColor3 = Color3.fromRGB(255, 255, 255),
+            ImageTransparency = 1,
+            ZIndex = 3,
+            Parent = AvatarFrame,
+        })
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = AvatarImage,
+        })
+
+        local DisplayNameLabel = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 80, 0, 16),
+            Position = UDim2.fromOffset(50, 4),
+            Text = game.Players.LocalPlayer.DisplayName,
+            TextSize = 12,
+            TextColor3 = Library.Scheme.FontColor,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 3,
+            Visible = false,
+            Parent = PlayerInfoFrame,
+        })
+
+        local UsernameLabel = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 80, 0, 12),
+            Position = UDim2.fromOffset(50, 20),
+            Text = "@" .. game.Players.LocalPlayer.Name,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(200, 200, 200),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 3,
+            Visible = false,
+            Parent = PlayerInfoFrame,
+        })
+
+        local AXUserLabel = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 80, 0, 12),
+            Position = UDim2.fromOffset(50, 14),
+            Text = "AX-User",
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(200, 200, 200),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 3,
+            Visible = true,
+            Parent = PlayerInfoFrame,
+        })
+
+        local isInfoHidden = true
+
+        BlockerButton.MouseButton1Click:Connect(function()
+            isInfoHidden = not isInfoHidden
+            if isInfoHidden then
+                AvatarImage.Image = ""
+                AvatarImage.BackgroundColor3 = Color3.fromRGB(181, 181, 181)
+                AvatarImage.BackgroundTransparency = 0
+                AvatarImage.ImageTransparency = 1
+                DisplayNameLabel.Visible = false
+                UsernameLabel.Visible = false
+                AXUserLabel.Visible = true
+            else
+                AvatarImage.Image = avatarUrl
+                AvatarImage.BackgroundTransparency = 1
+                AvatarImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+                AvatarImage.ImageTransparency = 0
+                DisplayNameLabel.Visible = true
+                UsernameLabel.Visible = true
+                AXUserLabel.Visible = false
+            end
+            local marginBottom = 40
+            Tabs.CanvasSize = UDim2.new(0, 0, 0, Tabs.UIListLayout.AbsoluteContentSize.Y + marginBottom)
+        end)
+
+        Tabs.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            local marginBottom = 40
+            Tabs.CanvasSize = UDim2.new(0, 0, 0, Tabs.UIListLayout.AbsoluteContentSize.Y + marginBottom)
+        end)
+
+        local marginBottom = 40
+        Tabs.CanvasSize = UDim2.new(0, 0, 0, Tabs.UIListLayout.AbsoluteContentSize.Y + marginBottom)
+
         --// Container \\--
         Container = New("Frame", {
             AnchorPoint = Vector2.new(1, 0),

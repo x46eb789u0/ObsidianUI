@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false --  hh
+local ThreadFix = setthreadidentity and true or false -- chatgpt is killing me
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -24,6 +24,7 @@ local function randomString(length)
     return result
 end
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
 local SoundService: SoundService = cloneref(game:GetService("SoundService"))
@@ -31,13 +32,6 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
-local Lighting: Lighting = cloneref(game:GetService("Lighting"))
-
--- Variables para Blur y LockButton
-local BlurAnimationThread = nil
-local _ShowBlur = true
-local _BlurSize = 13
-local _ShowMobileLockButton = true
 
 local getgenv = getgenv or function()
     return shared
@@ -97,20 +91,19 @@ local Buttons = {}
 local Toggles = {}
 local Options = {}
 
-local BlurAnimationThread = nil
+-- Blur variables
 local _ShowBlur = true
 local _BlurSize = 13
 local _ShowMobileLockButton = true
+local BlurAnimationThread = nil
 
 local Library = {
     LocalPlayer = LocalPlayer,
     DevicePlatform = nil,
     IsMobile = false,
     IsRobloxFocused = true,
+
     ScreenGui = nil,
-    BlurEffect = nil,
-    BlurEnabled = false,
-    MobileLockButton = nil,
 
     SearchText = "",
     Searching = false,
@@ -139,6 +132,7 @@ local Library = {
     Options = Options,
 
     NotifySide = "Right",
+    ShowCustomCursor = true,
     ForceCheckbox = false,
     ShowToggleFrameInKeybinds = true,
     NotifyOnError = false,
@@ -184,16 +178,52 @@ local ObsidianImageManager = {
             Path = "ObsidianUI/assets/SaturationMap.png",
 
             Id = nil
-        },
-        
-        Blur = {
-            RobloxId = 14898786664,
-            Path = "ObsidianUI/assets/blur.png",
-
-            Id = nil
         }
     }
 }
+
+do
+    local LibraryMetatable = {
+        __index = function(t, key)
+            if key == "ShowBlur" then
+                return _ShowBlur
+            elseif key == "BlurSize" then
+                return _BlurSize
+            elseif key == "ShowMobileLockButton" then
+                return _ShowMobileLockButton
+            end
+            return rawget(t, key)
+        end,
+        __newindex = function(t, key, value)
+            if key == "ShowBlur" then
+                local oldValue = _ShowBlur
+                _ShowBlur = value
+                
+                if not value and oldValue then
+                    if BlurAnimationThread then
+                        task.cancel(BlurAnimationThread)
+                        BlurAnimationThread = nil
+                    end
+                    if Library.BlurEffect then
+                        Library.BlurEffect.Size = 0
+                    end
+                end
+            elseif key == "BlurSize" then
+                _BlurSize = value
+            elseif key == "ShowMobileLockButton" then
+                _ShowMobileLockButton = value
+                if Library.MobileLockButton and Library.MobileLockButton.Button then
+                    Library.MobileLockButton.Button.Visible = value
+                end
+            else
+                rawset(t, key, value)
+            end
+        end
+    }
+    
+    setmetatable(Library, LibraryMetatable)
+end
+
 do
     local BaseURL = "https://raw.githubusercontent.com/x46eb789u0/ObsidianUI/refs/heads/main/"
 
@@ -276,57 +306,6 @@ else
     end)
     Library.IsMobile = (Library.DevicePlatform == Enum.Platform.Android or Library.DevicePlatform == Enum.Platform.IOS)
     Library.MinSize = Library.IsMobile and Vector2.new(480, 240) or Vector2.new(480, 360)
-end
-
-do
-    local LibraryMetatable = {
-        __index = function(t, key)
-            if key == "ShowBlur" then
-                return _ShowBlur
-            elseif key == "BlurSize" then
-                return _BlurSize
-            elseif key == "ShowMobileLockButton" then
-                return _ShowMobileLockButton
-            end
-            return rawget(t, key)
-        end,
-        __newindex = function(t, key, value)
-            if key == "ShowBlur" then
-                local oldValue = _ShowBlur
-                _ShowBlur = value
-                
-                if not value and oldValue then
-                    if BlurAnimationThread then
-                        task.cancel(BlurAnimationThread)
-                        BlurAnimationThread = nil
-                    end
-                    if rawget(t, "BlurEffect") then
-                        rawget(t, "BlurEffect").Size = 0
-                    end
-                    rawset(t, "BlurEnabled", false)
-                end
-                
-                if value and rawget(t, "Toggled") then
-                    animateBlur(true)
-                end
-            elseif key == "BlurSize" then
-                _BlurSize = value
-                
-                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
-                    rawget(t, "BlurEffect").Size = value
-                end
-            elseif key == "ShowMobileLockButton" then
-                _ShowMobileLockButton = value
-                
-                if rawget(t, "MobileLockButton") then
-                    rawget(t, "MobileLockButton").Button.Visible = value
-                end
-            else
-                rawset(t, key, value)
-            end
-        end
-    }
-    setmetatable(Library, LibraryMetatable)
 end
 
 local Templates = {
@@ -580,66 +559,6 @@ local function animateBlur(enabled)
         
         BlurAnimationThread = nil
     end)
-end
-
-local function createLockButton(parent)
-    local lockButton = {}
-    
-    local button = Instance.new("ImageButton")
-    button.Name = "LockButton"
-    button.Size = UDim2.fromOffset(32, 32)
-    button.Position = UDim2.new(0, 10, 0, 10)
-    button.BackgroundTransparency = 1
-    button.Image = ObsidianImageManager.GetAsset("Lock")
-    button.Visible = _ShowMobileLockButton
-    button.Parent = parent
-    
-    lockButton.Button = button
-    lockButton.Locked = false
-    
-    button.MouseButton1Click:Connect(function()
-        lockButton.Locked = not lockButton.Locked
-        button.Image = ObsidianImageManager.GetAsset(lockButton.Locked and "Lock" or "Unlock")
-        
-        if lockButton.Locked then
-            UserInputService.ModalEnabled = true
-        else
-            UserInputService.ModalEnabled = false
-        end
-    end)
-    
-    return lockButton
-end
-
-local function customCursor(parent)
-    local cursor = Instance.new("ImageLabel")
-    cursor.Name = "CustomCursor"
-    cursor.Size = UDim2.fromOffset(24, 24)
-    cursor.BackgroundTransparency = 1
-    cursor.Image = ObsidianImageManager.GetAsset("Cursor")
-    cursor.ZIndex = 1000
-    cursor.Visible = false
-    cursor.Parent = parent
-    
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        if not (Library.ScreenGui and Library.ScreenGui.Parent) then
-            connection:Disconnect()
-            return
-        end
-        
-        cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
-        
-        if Library.Toggled and Templates.Window.ShowCustomCursor then
-            cursor.Visible = true
-            UserInputService.MouseIconEnabled = false
-        else
-            cursor.Visible = false
-            UserInputService.MouseIconEnabled = true
-        end
-    end)
-    
-    return cursor
 end
 
 local function ApplyDPIScale(Dimension, ExtraOffset)
@@ -1175,78 +1094,8 @@ function Library:UpdateSearch(SearchText)
     Library.LastSearchTab = Library.ActiveTab
 end
 
-function Library:AddKeyPicker(ParentObj, Info)
-    assert(ParentObj, "Missing parent object")
-    assert(Info and Info.Text, "Missing KeyPicker info")
-
-    Info.Default = Info.Default or "None"
-    Info.Mode = Info.Mode or "Toggle"
-    Info.Modes = Info.Modes or { "Always", "Toggle", "Hold" }
-    Info.SyncToggleState = Info.SyncToggleState or false
-
-    Info.Callback = Info.Callback or function() end
-    Info.ChangedCallback = Info.ChangedCallback or function() end
-    Info.Changed = Info.Changed or function() end
-    Info.Clicked = Info.Clicked or function() end
-
-    local KeyPicker = {
-        Text = Info.Text,
-        Value = Info.Default,
-        Toggled = false,
-        Mode = Info.Mode,
-        SyncToggleState = Info.SyncToggleState,
-
-        Callback = Info.Callback,
-        ChangedCallback = Info.ChangedCallback,
-        Changed = Info.Changed,
-        Clicked = Info.Clicked,
-
-        Type = "KeyPicker",
-    }
-
-    if KeyPicker.Mode == "Press" then
-        assert(ParentObj.Type == "Label", "KeyPicker with the mode 'Press' can be only applied on Labels.")
-        
-        KeyPicker.SyncToggleState = false
-        Info.Modes = { "Press" }
-        Info.Mode = "Press"
-    end
-
-    if KeyPicker.SyncToggleState then
-        Info.Modes = { "Toggle" }
-        Info.Mode = "Toggle"
-    end
-
-    local SpecialKeys = {
-        ["MB1"] = Enum.UserInputType.MouseButton1,
-        ["MB2"] = Enum.UserInputType.MouseButton2,
-        ["MB3"] = Enum.UserInputType.MouseButton3
-    }
-
-    local SpecialKeysInput = {
-        [Enum.UserInputType.MouseButton1] = "MB1",
-        [Enum.UserInputType.MouseButton2] = "MB2",
-        [Enum.UserInputType.MouseButton3] = "MB3"
-    }
-
-    local ToggleLabel = ParentObj.Holder
-    
-    local Picker = New("TextButton", {
-        BackgroundColor3 = "MainColor",
-        BorderColor3 = "OutlineColor",
-        BorderSizePixel = 1,
-        Size = UDim2.fromOffset(18, 18),
-        Text = KeyPicker.Value,
-        TextSize = 14,
-        Parent = ToggleLabel,
-    })
-
-    local KeybindsToggle = { Normal = KeyPicker.Mode ~= "Toggle" }
-    
-    -- Resto de la implementación del KeyPicker
-    -- Aquí iría el código para manejar la selección de teclas, eventos, etc.
-
-    return KeyPicker
+function Library:AddToRegistry(Instance, Properties)
+    Library.Registry[Instance] = Properties
 end
 
 function Library:RemoveFromRegistry(Instance)
@@ -1483,6 +1332,19 @@ ScreenGui.DescendantRemoving:Connect(function(Instance)
     Library:RemoveFromRegistry(Instance)
     Library.DPIRegistry[Instance] = nil
 end)
+
+-- Custom Cursor
+local Cursor = New("ImageLabel", {
+    Name = "Cursor",
+    Image = "rbxassetid://14898786664",
+    ImageRectOffset = Vector2.new(0, 0),
+    ImageRectSize = Vector2.new(16, 16),
+    Size = UDim2.fromOffset(16, 16),
+    BackgroundTransparency = 1,
+    ZIndex = 1000,
+    Visible = false,
+    Parent = ScreenGui,
+})
 
 local ModalElement = New("TextButton", {
     BackgroundTransparency = 1,
@@ -2125,8 +1987,8 @@ function Library:AddTooltip(InfoStr: string, DisabledInfoStr: string, HoverInsta
             and not (CurrentMenu and Library:MouseIsOverFrame(CurrentMenu.Menu, Mouse))
         do
             TooltipLabel.Position = UDim2.fromOffset(
-                Mouse.X + 14,
-                Mouse.Y + 12
+                Mouse.X + (Library.ShowCustomCursor and 8 or 14),
+                Mouse.Y + (Library.ShowCustomCursor and 8 or 12)
             )
 
             RunService.RenderStepped:Wait()
@@ -2419,8 +2281,18 @@ do
                     KeybindsToggle:SetNormal(true)
                 end
 
-                KeybindsToggle:SetText(("[%s] %s (%s)"):format(KeyPicker.Value, KeyPicker.Text, KeyPicker.Mode))
-                KeybindsToggle:SetVisibility(true)
+                local showToggle = KeyPicker.Value ~= "None" and KeyPicker.Value ~= ""
+                if not showToggle then
+                    KeybindsToggle:SetVisibility(false)
+                else
+                    KeybindsToggle:SetVisibility(true)
+                    local modeStr = string.format(" (%s)", KeyPicker.Mode:sub(1, 1):upper())
+                    local text = KeybindsToggle.Normal and
+                        string.format("[%s] - %s%s", KeyPicker.Value, KeyPicker.Text, modeStr) or
+                        string.format("[%s] %s%s", KeyPicker.Value, KeyPicker.Text, modeStr)
+                    KeybindsToggle:SetText(text)
+                end
+
                 KeybindsToggle:Display(State)
             end
 
@@ -5350,6 +5222,18 @@ function Library:SetNotifySide(Side: string)
     end
 end
 
+function Library:SetShowBlur(Show: boolean)
+    Library.ShowBlur = Show
+end
+
+function Library:SetBlurSize(Size: number)
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize must be a number greater than or equal to 0")
+    Library.BlurSize = Size
+end
+
+function Library:SetShowMobileLockButton(Show: boolean)
+    Library.ShowMobileLockButton = Show
+end
 
 function Library:Notify(...)
     local Data = {}
@@ -5620,8 +5504,12 @@ function Library:CreateWindow(WindowInfo)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
+    Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
+    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
 
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
@@ -6856,7 +6744,27 @@ function Library:CreateWindow(WindowInfo)
             ModalElement.Modal = Library.Toggled
         end
 
-        if not Library.Toggled then
+        -- Blur animation
+        animateBlur(Library.Toggled)
+
+        if Library.Toggled and not Library.IsMobile then
+            local OldMouseIconEnabled = UserInputService.MouseIconEnabled
+            pcall(function()
+                RunService:UnbindFromRenderStep("ShowCursor")
+            end)
+            RunService:BindToRenderStep("ShowCursor", Enum.RenderPriority.Last.Value, function()
+                UserInputService.MouseIconEnabled = not Library.ShowCustomCursor
+
+                Cursor.Position = UDim2.fromOffset(Mouse.X, Mouse.Y)
+                Cursor.Visible = Library.ShowCustomCursor
+
+                if not (Library.Toggled and ScreenGui and ScreenGui.Parent) then
+                    UserInputService.MouseIconEnabled = OldMouseIconEnabled
+                    Cursor.Visible = false
+                    RunService:UnbindFromRenderStep("ShowCursor")
+                end
+            end)
+        elseif not Library.Toggled then
             TooltipLabel.Visible = false
             for _, Option in pairs(Library.Options) do
                 if Option.Type == "ColorPicker" then
@@ -6878,19 +6786,21 @@ function Library:CreateWindow(WindowInfo)
             Library:Toggle()
         end)
 
-        local LockButton = Library:AddDraggableButton("Lock", function(self)
+        Library.MobileLockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
         end)
+
+        Library.MobileLockButton.Button.Visible = Library.ShowMobileLockButton
 
         if WindowInfo.MobileButtonsSide == "Right" then
             ToggleButton.Button.Position = UDim2.new(1, -6, 0, 6)
             ToggleButton.Button.AnchorPoint = Vector2.new(1, 0)
 
-            LockButton.Button.Position = UDim2.new(1, -6, 0, 46)
-            LockButton.Button.AnchorPoint = Vector2.new(1, 0)
+            Library.MobileLockButton.Button.Position = UDim2.new(1, -6, 0, 46)
+            Library.MobileLockButton.Button.AnchorPoint = Vector2.new(1, 0)
         else
-            LockButton.Button.Position = UDim2.fromOffset(6, 46)
+            Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
 

@@ -1,13 +1,13 @@
-local ThreadFix = setthreadidentity and true or false -- rrr
+local ThreadFix = setthreadidentity and true or false -- pasted
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
     end)
 end
 
-local cloneref = (cloneref or clonereference or function(instance: any)
-    return instance
-end)
+local cloneref = cloneref or function(obj)
+    return obj
+end
 
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
@@ -89,6 +89,11 @@ local Labels = {}
 local Buttons = {}
 local Toggles = {}
 local Options = {}
+
+gc_protect(Labels)
+gc_protect(Buttons)
+gc_protect(Toggles)
+gc_protect(Options)
 
 local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
@@ -662,6 +667,42 @@ local function StopTween(Tween: TweenBase)
 
     Tween:Cancel()
 end
+
+local VapeTween = {
+    tweens = {},
+    tweenstwo = {}
+}
+
+function VapeTween:Tween(obj, tweeninfo, goal, tab)
+    tab = tab or self.tweens
+    if tab[obj] then
+        tab[obj]:Cancel()
+        tab[obj] = nil
+    end
+
+    if obj.Parent and obj.Visible then
+        tab[obj] = TweenService:Create(obj, tweeninfo, goal)
+        tab[obj].Completed:Once(function()
+            if tab then
+                tab[obj] = nil
+                tab = nil
+            end
+        end)
+        tab[obj]:Play()
+    else
+        for i, v in goal do
+            obj[i] = v
+        end
+    end
+end
+
+function VapeTween:Cancel(obj)
+    if self.tweens[obj] then
+        self.tweens[obj]:Cancel()
+        self.tweens[obj] = nil
+    end
+end
+
 local function Trim(Text: string)
     return Text:match("^%s*(.-)%s*$")
 end
@@ -1305,9 +1346,11 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = "Obsidian",
-    DisplayOrder = 999,
+    Name = randomString(12),
+    DisplayOrder = math.random(800, 999),
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -6855,18 +6898,7 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-gc_protect(Library)
-gc_protect(Library.Scheme)
-
-local randomKey = randomString(math.random(10, 16))
-local _G_backup = _G
-
-secureCall(function()
-    getgenv()[randomKey] = Library
-    _G_backup[randomKey] = Library
-end)
-
-secureCall(function()
+pcall(function()
     if not getgenv().Library then
         getgenv().Library = Library
     end
@@ -6885,15 +6917,21 @@ if Library.ScreenGui then
         end)
     end)
 end
+
 pcall(function()
     if getfenv and setfenv then
         local env = getfenv(0)
-        setfenv(0, setmetatable({}, {
-            __index = function(_, k)
-                return env[k]
-            end,
-            __metatable = randomString(12)
-        }))
+        if env then
+            setfenv(0, setmetatable({}, {
+                __index = function(_, key)
+                    if key == "script" then
+                        return nil
+                    end
+                    return env[key]
+                end,
+                __metatable = randomString(16)
+            }))
+        end
     end
 end)
 

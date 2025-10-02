@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false
+local ThreadFix = setthreadidentity and true or false -- hhhh
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -551,8 +551,13 @@ do
                     rawset(t, "BlurEnabled", false)
                 end
                 
-                if value and rawget(t, "Toggled") then
-                    animateBlur(true)
+                -- Solo animar si la UI está abierta
+                if rawget(t, "Toggled") then
+                    if value then
+                        animateBlur(true)
+                    else
+                        animateBlur(false)
+                    end
                 end
             elseif key == "BlurSize" then
                 _BlurSize = value
@@ -1351,7 +1356,7 @@ end)
 local Cursor
 do
     Cursor = New("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
+        AnchorPoint = Vector2.new(0, 0),
         BackgroundColor3 = "White",
         Size = UDim2.fromOffset(9, 1),
         Visible = false,
@@ -5545,10 +5550,6 @@ function Library:CreateWindow(WindowInfo)
     Library.ShowCustomCursor = WindowInfo.ShowCustomCursor
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
-    Library.ShowBlur = WindowInfo.ShowBlur
-    Library.BlurSize = WindowInfo.BlurSize
-    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
-
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
     local SearchBox
@@ -6839,6 +6840,11 @@ function Library:CreateWindow(WindowInfo)
             Library.MobileLockButton.Button.Position = UDim2.fromOffset(6, 46)
         end
     end
+
+    -- Configurar las propiedades después de crear el UI
+    Library.ShowBlur = WindowInfo.ShowBlur
+    Library.BlurSize = WindowInfo.BlurSize
+    Library.ShowMobileLockButton = WindowInfo.ShowMobileLockButton
 
     --// Execution \\--
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()

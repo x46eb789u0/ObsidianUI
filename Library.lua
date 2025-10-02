@@ -1,13 +1,14 @@
-local ThreadFix = setthreadidentity and true or false -- try
+-- omg bro
+local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
     end)
 end
 
-local cloneref = (cloneref or clonereference or function(instance: any)
-    return instance
-end)
+local cloneref = cloneref or function(obj)
+    return obj
+end
 
 local secureCall = function(func, ...)
     local success, result = pcall(func, ...)
@@ -84,6 +85,34 @@ end
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local Mouse = cloneref(LocalPlayer:GetMouse())
+
+local function SafeParentUI(Instance, Parent)
+    local success, _error = pcall(function()
+        if not Parent then
+            Parent = CoreGui
+        elseif typeof(Parent) == "function" then
+            Parent = Parent()
+        end
+
+        if Instance and Parent then
+            Instance.Parent = Parent
+        end
+    end)
+    
+    if not success then
+        Instance.Parent = CoreGui
+    end
+end
+
+local function ParentUI(UI, SkipHiddenUI)
+    if SkipHiddenUI then
+        SafeParentUI(UI, CoreGui)
+        return
+    end
+
+    pcall(protectgui, UI)
+    SafeParentUI(UI, gethui)
+end
 
 local Labels = {}
 local Buttons = {}
@@ -453,7 +482,7 @@ local Sizes = {
 --// Basic Functions \\--
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
-    blur.Name = 'Blur'
+    blur.Name = randomString(8)
     blur.Size = UDim2.new(1, 89, 1, 52)
     blur.Position = UDim2.fromOffset(-48, -31)
     blur.BackgroundTransparency = 1
@@ -469,7 +498,7 @@ end
 local function createBlurEffect()
     if not Library.BlurEffect then
         Library.BlurEffect = Instance.new("BlurEffect")
-        Library.BlurEffect.Name = "ObsidianBlur"
+        Library.BlurEffect.Name = randomString(12)
         Library.BlurEffect.Size = 0
         Library.BlurEffect.Parent = Lighting
     end
@@ -1305,9 +1334,11 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
 end
 
 local ScreenGui = New("ScreenGui", {
-    Name = "Obsidian",
-    DisplayOrder = 999,
+    Name = randomString(12),
+    DisplayOrder = math.random(800, 999),
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
 })
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
@@ -5227,7 +5258,7 @@ function Library:SetShowBlur(Show: boolean)
 end
 
 function Library:SetBlurSize(Size: number)
-    assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize must be a number greater than or equal to 0")
     Library.BlurSize = Size
 end
 
@@ -5534,7 +5565,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
             end,
-            Name = "Main",
+            Name = randomString(10),
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -5831,7 +5862,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = function()
                 return Library:GetBetterColor(Library.Scheme.BackgroundColor, 1)
             end,
-            Name = "Container",
+            Name = randomString(10),
             Position = UDim2.new(1, 0, 0, 49),
             Size = UDim2.new(0.7, -1, 1, -70),
             Parent = MainFrame,
@@ -6855,5 +6886,47 @@ Library:GiveSignal(Players.PlayerRemoving:Connect(OnPlayerChange))
 Library:GiveSignal(Teams.ChildAdded:Connect(OnTeamChange))
 Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
-getgenv().Library = Library
+gc_protect(Library)
+gc_protect(Library.Scheme)
+
+local randomKey = randomString(math.random(10, 16))
+local _G_backup = _G
+
+secureCall(function()
+    getgenv()[randomKey] = Library
+    _G_backup[randomKey] = Library
+end)
+
+secureCall(function()
+    if not getgenv().Library then
+        getgenv().Library = Library
+    end
+end)
+
+if Library.ScreenGui then
+    secureCall(function()
+        Library.ScreenGui.Name = randomString(math.random(10, 18))
+        task.spawn(function()
+            while Library.ScreenGui and Library.ScreenGui.Parent do
+                task.wait(math.random(5, 15))
+                if Library.ScreenGui then
+                    Library.ScreenGui.Name = randomString(math.random(10, 18))
+                end
+            end
+        end)
+    end)
+end
+
+pcall(function()
+    if getfenv and setfenv then
+        local env = getfenv(0)
+        setfenv(0, setmetatable({}, {
+            __index = function(_, k)
+                return env[k]
+            end,
+            __metatable = randomString(12)
+        }))
+    end
+end)
+
 return Library

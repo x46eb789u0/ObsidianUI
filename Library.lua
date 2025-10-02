@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false -- jdus9jdd
+local ThreadFix = setthreadidentity and true or false -- jdjuduujjfjfjf
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -492,7 +492,6 @@ local function animateBlur(enabled)
         createBlurEffect()
     end
 
-    -- Control blur overlay visibility
     if Library.BlurOverlay then
         Library.BlurOverlay.Visible = enabled
     end
@@ -503,21 +502,20 @@ local function animateBlur(enabled)
         if enabled then
             local targetSize = _BlurSize
             
-            -- Animate blur overlay transparency
             if Library.BlurOverlay then
-                local startTransparency = Library.BlurOverlay.BackgroundTransparency
-                local targetTransparency = 0.3
+                local startTransparency = Library.BlurOverlay.ImageTransparency
+                local targetTransparency = 0
                 local steps = 10
                 
                 for i = 1, steps do
                     if not Library.BlurEnabled then break end
                     local alpha = i / steps
-                    Library.BlurOverlay.BackgroundTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
+                    Library.BlurOverlay.ImageTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
                     task.wait(0.03)
                 end
                 
                 if Library.BlurOverlay and Library.BlurEnabled then
-                    Library.BlurOverlay.BackgroundTransparency = targetTransparency
+                    Library.BlurOverlay.ImageTransparency = targetTransparency
                 end
             end
 
@@ -535,21 +533,20 @@ local function animateBlur(enabled)
                 task.wait(0.03)
             end
         else
-            -- Animate blur overlay transparency out
             if Library.BlurOverlay then
-                local startTransparency = Library.BlurOverlay.BackgroundTransparency
+                local startTransparency = Library.BlurOverlay.ImageTransparency
                 local targetTransparency = 1
                 local steps = 10
                 
                 for i = 1, steps do
                     if Library.BlurEnabled then break end
                     local alpha = i / steps
-                    Library.BlurOverlay.BackgroundTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
+                    Library.BlurOverlay.ImageTransparency = startTransparency + (targetTransparency - startTransparency) * alpha
                     task.wait(0.03)
                 end
                 
                 if Library.BlurOverlay and not Library.BlurEnabled then
-                    Library.BlurOverlay.BackgroundTransparency = targetTransparency
+                    Library.BlurOverlay.ImageTransparency = targetTransparency
                     Library.BlurOverlay.Visible = false
                 end
             end
@@ -600,7 +597,7 @@ do
                     end
                     if rawget(t, "BlurOverlay") then
                         rawget(t, "BlurOverlay").Visible = false
-                        rawget(t, "BlurOverlay").BackgroundTransparency = 1
+                        rawget(t, "BlurOverlay").ImageTransparency = 1
                     end
                     rawset(t, "BlurEnabled", false)
                 end
@@ -1387,10 +1384,9 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
     SafeParentUI(UI, gethui)
 end
 
--- Create blur overlay ScreenGui (DisplayOrder lower than main UI)
 local BlurOverlayGui = New("ScreenGui", {
     Name = randomString(12),
-    DisplayOrder = 500, -- Above game UIs but below Obsidian UI
+    DisplayOrder = 500,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Global,
@@ -1398,21 +1394,22 @@ local BlurOverlayGui = New("ScreenGui", {
 ParentUI(BlurOverlayGui)
 Library.BlurOverlayGui = BlurOverlayGui
 
--- Create blur overlay frame
-local BlurOverlay = New("Frame", {
+local BlurOverlay = New("ImageLabel", {
     Name = "BlurOverlay",
-    BackgroundColor3 = Color3.new(0, 0, 0),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    Position = UDim2.fromScale(0, 0),
-    Size = UDim2.fromScale(1, 1),
+    Image = ObsidianImageManager.GetAsset('Blur') or 'rbxassetid://14898786664',
+    ImageTransparency = 1,
+    Position = UDim2.fromOffset(-48, -31),
+    Size = UDim2.new(1, 96, 1, 62),
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(52, 31, 261, 502),
     Visible = false,
     ZIndex = 1,
     Parent = BlurOverlayGui,
 })
 Library.BlurOverlay = BlurOverlay
 
--- Main Obsidian ScreenGui (DisplayOrder higher than blur overlay)
 local ScreenGui = New("ScreenGui", {
     Name = randomString(12),
     DisplayOrder = math.random(800, 999),

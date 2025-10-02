@@ -1,4 +1,4 @@
-local ThreadFix = setthreadidentity and true or false -- chatgpt is killing me
+local ThreadFix = setthreadidentity and true or false
 if ThreadFix then
     local success = pcall(function() 
         setthreadidentity(8) 
@@ -24,7 +24,6 @@ local function randomString(length)
     return result
 end
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
-local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
 local SoundService: SoundService = cloneref(game:GetService("SoundService"))
@@ -32,6 +31,8 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
+
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 
 local getgenv = getgenv or function()
     return shared
@@ -91,11 +92,10 @@ local Buttons = {}
 local Toggles = {}
 local Options = {}
 
--- Blur variables
+local BlurAnimationThread = nil
 local _ShowBlur = true
 local _BlurSize = 13
 local _ShowMobileLockButton = true
-local BlurAnimationThread = nil
 
 local Library = {
     LocalPlayer = LocalPlayer,
@@ -162,6 +162,11 @@ local Library = {
 
     Registry = {},
     DPIRegistry = {},
+
+    BlurEffect = nil,
+    BlurEnabled = false,
+    
+    MobileLockButton = nil,
 }
 
 local ObsidianImageManager = {
@@ -181,49 +186,6 @@ local ObsidianImageManager = {
         }
     }
 }
-
-do
-    local LibraryMetatable = {
-        __index = function(t, key)
-            if key == "ShowBlur" then
-                return _ShowBlur
-            elseif key == "BlurSize" then
-                return _BlurSize
-            elseif key == "ShowMobileLockButton" then
-                return _ShowMobileLockButton
-            end
-            return rawget(t, key)
-        end,
-        __newindex = function(t, key, value)
-            if key == "ShowBlur" then
-                local oldValue = _ShowBlur
-                _ShowBlur = value
-                
-                if not value and oldValue then
-                    if BlurAnimationThread then
-                        task.cancel(BlurAnimationThread)
-                        BlurAnimationThread = nil
-                    end
-                    if Library.BlurEffect then
-                        Library.BlurEffect.Size = 0
-                    end
-                end
-            elseif key == "BlurSize" then
-                _BlurSize = value
-            elseif key == "ShowMobileLockButton" then
-                _ShowMobileLockButton = value
-                if Library.MobileLockButton and Library.MobileLockButton.Button then
-                    Library.MobileLockButton.Button.Visible = value
-                end
-            else
-                rawset(t, key, value)
-            end
-        end
-    }
-    
-    setmetatable(Library, LibraryMetatable)
-end
-
 do
     local BaseURL = "https://raw.githubusercontent.com/x46eb789u0/ObsidianUI/refs/heads/main/"
 
@@ -481,7 +443,7 @@ local Sizes = {
     Right = { 0.5, 1 },
 }
 
---// Basic Functions \\--
+--// Blur Functions \\--
 local function addBlur(parent)
     local blur = Instance.new('ImageLabel')
     blur.Name = 'Blur'
@@ -561,6 +523,58 @@ local function animateBlur(enabled)
     end)
 end
 
+do
+    local LibraryMetatable = {
+        __index = function(t, key)
+            if key == "ShowBlur" then
+                return _ShowBlur
+            elseif key == "BlurSize" then
+                return _BlurSize
+            elseif key == "ShowMobileLockButton" then
+                return _ShowMobileLockButton
+            end
+            return rawget(t, key)
+        end,
+        __newindex = function(t, key, value)
+            if key == "ShowBlur" then
+                local oldValue = _ShowBlur
+                _ShowBlur = value
+                
+                if not value and oldValue then
+                    if BlurAnimationThread then
+                        task.cancel(BlurAnimationThread)
+                        BlurAnimationThread = nil
+                    end
+                    if rawget(t, "BlurEffect") then
+                        rawget(t, "BlurEffect").Size = 0
+                    end
+                    rawset(t, "BlurEnabled", false)
+                end
+                
+                if value and rawget(t, "Toggled") then
+                    animateBlur(true)
+                end
+            elseif key == "BlurSize" then
+                _BlurSize = value
+                
+                if rawget(t, "BlurEffect") and rawget(t, "BlurEnabled") and _ShowBlur then
+                    rawget(t, "BlurEffect").Size = value
+                end
+            elseif key == "ShowMobileLockButton" then
+                _ShowMobileLockButton = value
+                
+                if rawget(t, "MobileLockButton") then
+                    rawget(t, "MobileLockButton").Button.Visible = value
+                end
+            else
+                rawset(t, key, value)
+            end
+        end
+    }
+    setmetatable(Library, LibraryMetatable)
+end
+
+--// Basic Functions \\--
 local function ApplyDPIScale(Dimension, ExtraOffset)
     if typeof(Dimension) == "UDim" then
         return UDim.new(Dimension.Scale, Dimension.Offset * Library.DPIScale)
@@ -1333,18 +1347,42 @@ ScreenGui.DescendantRemoving:Connect(function(Instance)
     Library.DPIRegistry[Instance] = nil
 end)
 
--- Custom Cursor
-local Cursor = New("ImageLabel", {
-    Name = "Cursor",
-    Image = "rbxassetid://14898786664",
-    ImageRectOffset = Vector2.new(0, 0),
-    ImageRectSize = Vector2.new(16, 16),
-    Size = UDim2.fromOffset(16, 16),
-    BackgroundTransparency = 1,
-    ZIndex = 1000,
-    Visible = false,
-    Parent = ScreenGui,
-})
+--// Cursor
+local Cursor
+do
+    Cursor = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Size = UDim2.fromOffset(9, 1),
+        Visible = false,
+        ZIndex = 999,
+        Parent = ScreenGui,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = Cursor,
+    })
+
+    local CursorV = New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "White",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(1, 9),
+        Parent = Cursor,
+    })
+    New("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = "Dark",
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 2, 1, 2),
+        ZIndex = 998,
+        Parent = CursorV,
+    })
+end
 
 local ModalElement = New("TextButton", {
     BackgroundTransparency = 1,
@@ -5227,7 +5265,7 @@ function Library:SetShowBlur(Show: boolean)
 end
 
 function Library:SetBlurSize(Size: number)
-    assert(typeof(Size) == "number" and Size >= 0, "BlurSize must be a number greater than or equal to 0")
+    assert(typeof(Size) == "number" and Size >= 0, "BlurSize debe ser un número mayor o igual a 0")
     Library.BlurSize = Size
 end
 
@@ -6739,13 +6777,11 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
+        animateBlur(Library.Toggled)
         
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
         end
-
-        -- Blur animation
-        animateBlur(Library.Toggled)
 
         if Library.Toggled and not Library.IsMobile then
             local OldMouseIconEnabled = UserInputService.MouseIconEnabled
